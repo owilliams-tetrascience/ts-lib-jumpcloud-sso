@@ -1,0 +1,46 @@
+{
+  "name": "ts-lib-jumpcloud-sso",
+  "version": "0.0.0",
+  "private": true,
+  "license": "UNLICENSED",
+  "description": "Nx workspace for @tetrascience-npm/jumpcloud-sso — plug-and-play JumpCloud OIDC SSO for Next.js and Express apps.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "nx run-many -t build",
+    "test": "nx run-many -t test",
+    "lint": "nx run-many -t lint",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "dev:next": "nx dev example-next",
+    "dev:express": "nx dev example-express"
+  },
+  "devDependencies": {
+    "@nx/eslint": "23.1.0",
+    "@nx/eslint-plugin": "23.1.0",
+    "@nx/js": "23.1.0",
+    "@nx/vite": "23.1.0",
+    "@nx/vitest": "23.1.0",
+    "@tetrascience-npm/jumpcloud-sso": "file:packages/jumpcloud-sso",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.19.43",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "express": "^5.2.1",
+    "express-openid-connect": "^2.20.2",
+    "next": "~15.5.22",
+    "next-auth": "5.0.0-beta.32",
+    "nx": "23.1.0",
+    "prettier": "^3.8.1",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "tsx": "^4.23.8",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.66.0",
+    "vitest": "^4.1.10"
+  }
+}

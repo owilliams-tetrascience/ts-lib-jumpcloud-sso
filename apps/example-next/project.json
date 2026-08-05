@@ -1,0 +1,38 @@
+{
+  "name": "example-next",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/example-next",
+  "tags": ["scope:example"],
+  "implicitDependencies": ["jumpcloud-sso"],
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "next dev apps/example-next",
+        "cwd": "{workspaceRoot}"
+      },
+      "dependsOn": ["^build"],
+      "continuous": true,
+      "cache": false
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "next build apps/example-next",
+        "cwd": "{workspaceRoot}"
+      },
+      "outputs": ["{projectRoot}/.next"]
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "next start apps/example-next",
+        "cwd": "{workspaceRoot}"
+      },
+      "dependsOn": ["build"],
+      "continuous": true,
+      "cache": false
+    }
+  }
+}

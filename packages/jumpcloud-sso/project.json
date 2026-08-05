@@ -1,0 +1,30 @@
+{
+  "name": "jumpcloud-sso",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/jumpcloud-sso",
+  "tags": ["scope:release"],
+  "implicitDependencies": ["core", "next", "express"],
+  "targets": {
+    "nx-release-publish": {
+      "options": {
+        "registry": "https://tetrascience.jfrog.io/artifactory/api/npm/npm-local/"
+      }
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "node tools/scripts/compose-package.mjs",
+        "cwd": "{workspaceRoot}"
+      },
+      "dependsOn": ["^build"],
+      "inputs": [
+        "production",
+        "^production",
+        "{workspaceRoot}/tools/scripts/compose-package.mjs"
+      ],
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true
+    }
+  }
+}

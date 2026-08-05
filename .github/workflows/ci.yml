@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Cancel superseded runs of the same PR/branch; CI is read-only so this is safe.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  main:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Nx affected compares against a base commit, so it needs history,
+          # not a shallow clone.
+          fetch-depth: 0
+
+      # Sets NX_BASE and NX_HEAD to the correct SHAs for `nx affected`:
+      # on PRs the merge-base with the target branch, on main the SHA of the
+      # last successful CI run.
+      - uses: nrwl/nx-set-shas@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      # Pull requests: only lint/test/build the projects affected by the diff.
+      - name: Lint, test, build (affected)
+        if: github.event_name == 'pull_request'
+        run: npx nx affected -t lint,test,build
+
+      # main: run everything, so the release pipeline always starts from a
+      # fully verified workspace.
+      - name: Lint, test, build (all)
+        if: github.event_name == 'push'
+        run: npx nx run-many -t lint,test,build

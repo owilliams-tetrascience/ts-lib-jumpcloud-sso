@@ -1,0 +1,66 @@
+{
+  "name": "@tetrascience-npm/jumpcloud-sso",
+  "version": "0.0.1",
+  "description": "Plug-and-play JumpCloud OIDC SSO for TetraScience internal apps — Next.js (Auth.js v5) and Express (express-openid-connect).",
+  "license": "UNLICENSED",
+  "type": "module",
+  "keywords": [
+    "jumpcloud",
+    "oidc",
+    "sso",
+    "authentication",
+    "tetrascience"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tetrascience/ts-lib-jumpcloud-sso.git"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js",
+      "default": "./dist/core/index.js"
+    },
+    "./next": {
+      "types": "./dist/next/index.d.ts",
+      "import": "./dist/next/index.js",
+      "default": "./dist/next/index.js"
+    },
+    "./express": {
+      "types": "./dist/express/index.d.ts",
+      "import": "./dist/express/index.js",
+      "default": "./dist/express/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "peerDependencies": {
+    "express": "^4 || ^5",
+    "express-openid-connect": "^2",
+    "next": ">=14",
+    "next-auth": "^5.0.0-beta.32"
+  },
+  "peerDependenciesMeta": {
+    "express": {
+      "optional": true
+    },
+    "express-openid-connect": {
+      "optional": true
+    },
+    "next": {
+      "optional": true
+    },
+    "next-auth": {
+      "optional": true
+    }
+  },
+  "publishConfig": {
+    "registry": "https://tetrascience.jfrog.io/artifactory/api/npm/npm-local/"
+  }
+}

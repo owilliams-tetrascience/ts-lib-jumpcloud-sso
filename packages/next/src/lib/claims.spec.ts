@@ -1,0 +1,80 @@
+import type { Session } from 'next-auth';
+import type { JWT } from 'next-auth/jwt';
+import { describe, expect, it } from 'vitest';
+import { applyGroupsToSession, applyGroupsToToken } from './claims.js';
+
+const baseToken: JWT = { sub: 'user-1', email: 'ada@tetrascience.com' };
+
+describe('applyGroupsToToken', () => {
+  it('normalizes a bare-string claim (JumpCloud single-group quirk) on sign-in', () => {
+    const token = applyGroupsToToken(
+      baseToken,
+      { memberOf: 'app-admins' },
+      'memberOf',
+    );
+    expect(token['groups']).toEqual(['app-admins']);
+  });
+
+  it('keeps an array claim as-is on sign-in', () => {
+    const token = applyGroupsToToken(
+      baseToken,
+      { memberOf: ['app-admins', 'engineering'] },
+      'memberOf',
+    );
+    expect(token['groups']).toEqual(['app-admins', 'engineering']);
+  });
+
+  it('stores [] when the claim is missing from the profile', () => {
+    const token = applyGroupsToToken(baseToken, { email: 'a@b.c' }, 'memberOf');
+    expect(token['groups']).toEqual([]);
+  });
+
+  it('reads the configured claim name', () => {
+    const token = applyGroupsToToken(
+      baseToken,
+      { groups: ['custom-claim-group'] },
+      'groups',
+    );
+    expect(token['groups']).toEqual(['custom-claim-group']);
+  });
+
+  it('leaves the token untouched on refresh (no profile present)', () => {
+    const signedIn = applyGroupsToToken(
+      baseToken,
+      { memberOf: 'app-admins' },
+      'memberOf',
+    );
+    const refreshed = applyGroupsToToken(signedIn, undefined, 'memberOf');
+    expect(refreshed).toBe(signedIn);
+    expect(refreshed['groups']).toEqual(['app-admins']);
+  });
+});
+
+describe('applyGroupsToSession', () => {
+  const baseSession = {
+    user: { name: 'Ada', email: 'ada@tetrascience.com' },
+    expires: '2099-01-01T00:00:00.000Z',
+  } as Session;
+
+  it('copies groups from the token onto session.user', () => {
+    const session = applyGroupsToSession(baseSession, {
+      ...baseToken,
+      groups: ['app-admins'],
+    });
+    expect(session.user?.groups).toEqual(['app-admins']);
+    expect(session.user?.email).toBe('ada@tetrascience.com');
+  });
+
+  it('defaults to an empty group list when the token has none', () => {
+    const session = applyGroupsToSession(baseSession, baseToken);
+    expect(session.user?.groups).toEqual([]);
+  });
+
+  it('normalizes a stray single-string value defensively', () => {
+    const session = applyGroupsToSession(baseSession, {
+      ...baseToken,
+      groups: 'app-admins',
+    });
+    expect(session.user?.groups).toEqual(['app-admins']);
+  });
+});

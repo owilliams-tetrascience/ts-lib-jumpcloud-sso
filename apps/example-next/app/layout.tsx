@@ -1,0 +1,31 @@
+import type { Metadata } from 'next';
+import type { ReactNode } from 'react';
+
+export const metadata: Metadata = {
+  title: 'jumpcloud-sso — Next.js example',
+  description:
+    'Minimal Next.js App Router app using @tetrascience-npm/jumpcloud-sso/next',
+};
+
+export default function RootLayout({ children }: { children: ReactNode }) {
+  return (
+    <html lang="en">
+      <body
+        style={{
+          fontFamily: 'system-ui, sans-serif',
+          maxWidth: '42rem',
+          margin: '2rem auto',
+          padding: '0 1rem',
+          lineHeight: 1.6,
+        }}
+      >
+        <nav style={{ display: 'flex', gap: '1rem', marginBottom: '2rem' }}>
+          <a href="/">Home (public)</a>
+          <a href="/dashboard">Dashboard (any signed-in user)</a>
+          <a href="/admin">Admin (app-admins only)</a>
+        </nav>
+        {children}
+      </body>
+    </html>
+  );
+}
