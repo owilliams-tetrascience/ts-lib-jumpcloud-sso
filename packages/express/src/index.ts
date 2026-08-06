@@ -16,4 +16,6 @@ import 'express-openid-connect';
 
 export { createJumpCloudSSO } from './lib/create-sso.js';
 export { createMeHandler, createRequireGroup } from './lib/handlers.js';
+export { createSSORouter } from './lib/router.js';
+export type { JumpCloudSSORouter, SSORouterOptions } from './lib/router.js';
 export type { JumpCloudExpressOptions, JumpCloudSSO } from './lib/types.js';

@@ -4,7 +4,7 @@
   "projectType": "library",
   "sourceRoot": "packages/jumpcloud-sso",
   "tags": ["scope:release"],
-  "implicitDependencies": ["core", "next", "express"],
+  "implicitDependencies": ["core", "next", "express", "setup"],
   "targets": {
     "nx-release-publish": {
       "options": {

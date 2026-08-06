@@ -20,4 +20,12 @@ export {
   requiredGroupsForPath,
 } from './lib/route-guards.js';
 export type { AccessDecision, AccessRequest } from './lib/route-guards.js';
+export { createSessionTools } from './lib/session.js';
+export type {
+  RequireSessionOptions,
+  SessionTools,
+  SessionToolsOptions,
+  SignedInProps,
+  SignedOutProps,
+} from './lib/session.js';
 export type { JumpCloudAuthOptions, RouteGroups } from './lib/types.js';

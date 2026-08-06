@@ -5,6 +5,7 @@
  *   packages/core/dist    -> packages/jumpcloud-sso/dist/core
  *   packages/next/dist    -> packages/jumpcloud-sso/dist/next
  *   packages/express/dist -> packages/jumpcloud-sso/dist/express
+ *   packages/setup/dist   -> packages/jumpcloud-sso/dist/setup  (CLI bin)
  *
  * The composed layout matches the `exports` map in
  * packages/jumpcloud-sso/package.json (`./core`, `./next`, `./express`).
@@ -19,7 +20,7 @@ import { fileURLToPath } from 'node:url';
 const workspaceRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const packageRoot = resolve(workspaceRoot, 'packages/jumpcloud-sso');
 const outDir = resolve(packageRoot, 'dist');
-const entries = ['core', 'next', 'express'];
+const entries = ['core', 'next', 'express', 'setup'];
 
 rmSync(outDir, { recursive: true, force: true });
 

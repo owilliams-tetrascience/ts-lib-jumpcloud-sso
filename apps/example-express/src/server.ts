@@ -1,5 +1,5 @@
 import { resolveEnv } from '@tetrascience-npm/jumpcloud-sso/core';
-import { createJumpCloudSSO } from '@tetrascience-npm/jumpcloud-sso/express';
+import { createSSORouter } from '@tetrascience-npm/jumpcloud-sso/express';
 import express from 'express';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,7 +20,7 @@ if (!sessionSecret) {
   );
 }
 
-const sso = createJumpCloudSSO({
+const sso = createSSORouter({
   ...resolveEnv(), // JUMPCLOUD_CLIENT_ID / _CLIENT_SECRET / _ISSUER / _GROUPS_CLAIM
   baseUrl,
   sessionSecret,
@@ -28,17 +28,15 @@ const sso = createJumpCloudSSO({
 
 const app = express();
 
-// Session middleware first: adds req.oidc and mounts /login, /logout,
-// /callback. Routes stay public unless guarded (authRequired: false).
-app.use(sso.authMiddleware);
+// One mount wires everything: the session middleware (req.oidc plus /login,
+// /logout, /callback — routes stay public unless guarded) and the BFF
+// identity endpoint /api/me (200 {user, groups} or 401).
+app.use(sso.router);
 
 // The "SPA": a single static HTML page (no bundler needed for the demo).
 app.use(
   express.static(join(dirname(fileURLToPath(import.meta.url)), '../public')),
 );
-
-// BFF identity endpoint: 200 {user, groups} or 401.
-app.get('/api/me', sso.meHandler);
 
 // Any signed-in user.
 app.get('/api/data', sso.requireAuth, (req, res) => {
