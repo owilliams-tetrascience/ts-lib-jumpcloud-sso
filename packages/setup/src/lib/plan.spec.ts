@@ -38,7 +38,7 @@ describe('buildPlan (next)', () => {
     expect(plan.envExample).toContain('AUTH_SECRET=');
     expect(plan.envExample).toContain('JUMPCLOUD_CLIENT_ID=');
     expect(plan.nextSteps[0]).toBe(
-      'Install the runtime dependencies: npm install @tetrascience-npm/jumpcloud-sso next-auth@beta',
+      'Install the runtime dependencies: npm install @tetrascience-npm/jumpcloud-sso next-auth@^5.0.0-beta.32',
     );
   });
 });
@@ -71,7 +71,7 @@ describe('buildPlan (express)', () => {
 
 describe('dependenciesFor', () => {
   it('pins the framework peer each integration needs', () => {
-    expect(dependenciesFor('next')).toContain('next-auth@beta');
+    expect(dependenciesFor('next')).toContain('next-auth@^5.0.0-beta.32');
     expect(dependenciesFor('express')).toContain('express-openid-connect@^2');
   });
 });

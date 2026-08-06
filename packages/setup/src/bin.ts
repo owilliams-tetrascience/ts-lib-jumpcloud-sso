@@ -123,12 +123,13 @@ function detectPackageManager(dir: string): PackageManager {
   return 'npm';
 }
 
-/** Next.js only: does the app tree live under `src/`? */
+/**
+ * Next.js only: does the App Router tree live under `src/`? True only when
+ * `src/app` exists and there is no root `app/` — a bare `src/` directory
+ * (e.g. shared code next to a root-level App Router) is not enough.
+ */
 function detectSrcDir(dir: string): boolean {
-  if (existsSync(join(dir, 'app'))) {
-    return false;
-  }
-  return existsSync(join(dir, 'src', 'app')) || existsSync(join(dir, 'src'));
+  return existsSync(join(dir, 'src', 'app')) && !existsSync(join(dir, 'app'));
 }
 
 async function promptType(): Promise<ProjectType> {

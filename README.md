@@ -147,7 +147,7 @@ registry:
 ```bash
 # .npmrc in your app repo (once):
 #   @tetrascience-npm:registry=https://tetrascience.jfrog.io/artifactory/api/npm/npm-local/
-npm install @tetrascience-npm/jumpcloud-sso next-auth@beta
+npm install @tetrascience-npm/jumpcloud-sso next-auth@^5.0.0-beta.32
 ```
 
 **Step 1 — environment.** Create `.env.local` (never commit it):

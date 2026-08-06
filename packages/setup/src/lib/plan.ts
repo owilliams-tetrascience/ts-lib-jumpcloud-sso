@@ -49,10 +49,15 @@ const INSTALL: Record<PackageManager, string> = {
   pnpm: 'pnpm add',
 };
 
-/** Peer packages each integration needs at runtime. */
+/**
+ * Peer packages each integration needs at runtime. Version specs must stay
+ * in lockstep with `peerDependencies` in packages/jumpcloud-sso/package.json
+ * — a floating tag like `next-auth@beta` could drift outside the supported
+ * range.
+ */
 export function dependenciesFor(type: ProjectType): string[] {
   return type === 'next'
-    ? ['@tetrascience-npm/jumpcloud-sso', 'next-auth@beta']
+    ? ['@tetrascience-npm/jumpcloud-sso', 'next-auth@^5.0.0-beta.32']
     : ['@tetrascience-npm/jumpcloud-sso', 'express-openid-connect@^2'];
 }
 
