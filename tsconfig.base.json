@@ -1,0 +1,32 @@
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    "target": "es2022",
+    "lib": ["es2022"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "forceConsistentCasingInFileNames": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    // Deliberately NO baseUrl: since TS 4.4, `paths` entries resolve relative
+    // to the tsconfig that declares them. The per-library build configs
+    // (packages/*/tsconfig.lib.json) override `paths` with entries relative to
+    // their own directory (e.g. "../core/dist/index.d.ts"); a root baseUrl
+    // would force those to resolve from the workspace root and break builds.
+    "paths": {
+      "@tetrascience-npm/jumpcloud-sso/core": ["./packages/core/src/index.ts"],
+      "@tetrascience-npm/jumpcloud-sso/next": ["./packages/next/src/index.ts"],
+      "@tetrascience-npm/jumpcloud-sso/express": [
+        "./packages/express/src/index.ts"
+      ]
+    }
+  },
+  "exclude": ["node_modules", "tmp"]
+}

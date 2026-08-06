@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>jumpcloud-sso — Express BFF example</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        max-width: 42rem;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.6;
+      }
+      button {
+        margin-right: 0.5rem;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 0.75rem;
+        border-radius: 6px;
+        overflow-x: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>JumpCloud SSO — Express BFF example</h1>
+    <p>
+      This static page never sees a token. It asks its own backend who you are
+      (<code>GET /api/me</code>) and the backend keeps the OIDC tokens in an
+      encrypted session cookie.
+    </p>
+
+    <p id="who">Checking session…</p>
+    <p>
+      <a id="login" href="/login">Sign in with JumpCloud</a>
+      <a id="logout" href="/logout" hidden
+        >Sign out (ends the JumpCloud session too)</a
+      >
+    </p>
+
+    <h2>Try the APIs</h2>
+    <p>
+      <button data-url="/api/me">GET /api/me</button>
+      <button data-url="/api/data">GET /api/data (requires sign-in)</button>
+      <button data-url="/api/admin">
+        GET /api/admin (requires app-admins)
+      </button>
+    </p>
+    <pre id="output">Click a button…</pre>
+
+    <script>
+      const who = document.getElementById('who');
+      const login = document.getElementById('login');
+      const logout = document.getElementById('logout');
+      const output = document.getElementById('output');
+
+      async function call(url) {
+        const res = await fetch(url);
+        let body;
+        try {
+          body = await res.json();
+        } catch {
+          body = '(no JSON body)';
+        }
+        return { status: res.status, body };
+      }
+
+      // BFF pattern: ask the backend who the user is; no tokens in the browser.
+      call('/api/me').then(({ status, body }) => {
+        if (status === 200) {
+          const groups = (body.groups || []).join(', ') || '(none)';
+          who.textContent = `Signed in as ${body.user?.email ?? 'unknown'} — groups: ${groups}`;
+          login.hidden = true;
+          logout.hidden = false;
+        } else {
+          who.textContent = 'Not signed in.';
+        }
+      });
+
+      document.querySelectorAll('button[data-url]').forEach((button) => {
+        button.addEventListener('click', async () => {
+          output.textContent = `GET ${button.dataset.url} …`;
+          const { status, body } = await call(button.dataset.url);
+          output.textContent =
+            `HTTP ${status}\n` + JSON.stringify(body, null, 2);
+        });
+      });
+    </script>
+  </body>
+</html>

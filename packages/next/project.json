@@ -1,0 +1,18 @@
+{
+  "name": "next",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "library",
+  "sourceRoot": "packages/next/src",
+  "tags": ["scope:lib"],
+  "implicitDependencies": ["core"],
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p packages/next/tsconfig.lib.json",
+        "cwd": "{workspaceRoot}"
+      },
+      "outputs": ["{projectRoot}/dist"]
+    }
+  }
+}

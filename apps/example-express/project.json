@@ -1,0 +1,38 @@
+{
+  "name": "example-express",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/example-express/src",
+  "tags": ["scope:example"],
+  "implicitDependencies": ["jumpcloud-sso"],
+  "targets": {
+    "dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsx watch --env-file=.env src/server.ts",
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": ["^build"],
+      "continuous": true,
+      "cache": false
+    },
+    "start": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsx --env-file=.env src/server.ts",
+        "cwd": "{projectRoot}"
+      },
+      "dependsOn": ["^build"],
+      "continuous": true,
+      "cache": false
+    },
+    "build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "tsc -p apps/example-express/tsconfig.json",
+        "cwd": "{workspaceRoot}"
+      },
+      "outputs": []
+    }
+  }
+}

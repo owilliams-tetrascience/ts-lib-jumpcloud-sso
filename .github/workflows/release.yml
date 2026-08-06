@@ -1,0 +1,113 @@
+name: Release
+
+on:
+  # Run after CI has completed successfully on main — never on unverified code.
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  # Manual escape hatch (e.g. the very first release, or re-running a publish).
+  workflow_dispatch:
+    inputs:
+      first_release:
+        description: >-
+          First release ever? Passes --first-release so Nx does not require an
+          existing git tag or published package to determine the current
+          version.
+        type: boolean
+        default: false
+
+# The default GITHUB_TOKEN deliberately gets no write access here. Pushing to
+# main is done with RELEASE_BOT_TOKEN (see below).
+permissions:
+  contents: read
+
+# Never run two releases at once; queue instead of cancelling a mid-publish run.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Only release when CI actually succeeded (or when triggered manually).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          # Conventional-commit version resolution walks tags + history.
+          fetch-depth: 0
+          # IMPORTANT — branch ruleset (GH013): our org blocks direct pushes to
+          # main, including pushes made with the default GITHUB_TOKEN. The
+          # version-bump commit and the release tag below MUST therefore be
+          # pushed as our release bot (a GitHub App / bot account that is
+          # configured as a bypass actor on the ruleset). Checking out with
+          # RELEASE_BOT_TOKEN makes every subsequent `git push` in this job
+          # authenticate as that bot.
+          token: ${{ secrets.RELEASE_BOT_TOKEN }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+
+      - name: Configure git identity for the release commit
+        run: |
+          git config user.name "ts-release-bot"
+          git config user.email "release-bot@tetrascience.com"
+
+      - name: Configure npm auth for JFrog Artifactory
+        # ${NPM_TOKEN} is written as a LITERAL string — npm expands it from the
+        # environment when publishing, so the secret itself is never written to
+        # disk or committed anywhere. The user-level ~/.npmrc is what
+        # `nx release publish` picks up when it runs `npm publish` from the
+        # package directory; the workspace .npmrc covers root-level npm usage.
+        run: |
+          echo '//tetrascience.jfrog.io/artifactory/api/npm/npm-local/:_authToken=${NPM_TOKEN}' > .npmrc
+          echo '//tetrascience.jfrog.io/artifactory/api/npm/npm-local/:_authToken=${NPM_TOKEN}' >> ~/.npmrc
+
+      # Belt and braces: nx release also builds via its preVersionCommand, but
+      # an explicit build keeps the pipeline obvious and is fully cached.
+      - name: Build all packages
+        run: npx nx run-many -t build
+
+      # Determine the version from conventional commits (feat: minor,
+      # fix: patch, BREAKING CHANGE: major), update CHANGELOG.md and the
+      # package version, then commit and tag — but do not publish yet.
+      # The commit message contains [skip ci] so the release commit does not
+      # trigger CI (and therefore cannot re-trigger this workflow).
+      - name: Version, changelog, commit, tag
+        run: >-
+          npx nx release --skip-publish --yes
+          ${{ inputs.first_release && '--first-release' || '' }}
+
+      # nx release does not push. If no releasable commits landed since the
+      # last tag, nx skips versioning entirely — detect that by checking for a
+      # fresh tag on HEAD and make the remaining steps no-ops.
+      - name: Detect whether a release was created
+        id: release_created
+        run: |
+          TAG="$(git tag --points-at HEAD 'v*' | head -n1)"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          if [ -z "${TAG}" ]; then
+            echo "No release tag on HEAD — nothing to publish."
+          fi
+
+      # Push BEFORE publishing: if the push were to fail (e.g. bot lost its
+      # ruleset bypass), we must not have already published a version whose
+      # bump never landed on main. This push is the step that requires the
+      # RELEASE_BOT_TOKEN ruleset bypass (GH013).
+      - name: Push release commit and tag to main
+        if: steps.release_created.outputs.tag != ''
+        run: git push --follow-tags origin main
+
+      - name: Publish to JFrog Artifactory
+        if: steps.release_created.outputs.tag != ''
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx nx release publish
