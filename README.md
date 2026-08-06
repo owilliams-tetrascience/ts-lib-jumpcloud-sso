@@ -17,6 +17,7 @@ first two sections once and the rest of your life gets easier.
 - [What is OIDC in one minute](#what-is-oidc-in-one-minute)
 - [The login flow, drawn out](#the-login-flow-drawn-out)
 - [Register your app in JumpCloud (checklist)](#register-your-app-in-jumpcloud-checklist)
+- [Fastest start: the setup CLI](#fastest-start-the-setup-cli)
 - [Quickstart: Next.js in 5 steps](#quickstart-nextjs-in-5-steps)
 - [Quickstart: Express in 5 steps](#quickstart-express-in-5-steps)
 - [Gotchas](#gotchas)
@@ -118,6 +119,26 @@ New Application** → **Custom Application**):
       immediately** — JumpCloud shows the secret exactly once. Store it in the
       team's secret manager, never in git.
 
+## Fastest start: the setup CLI
+
+The package ships a scaffolding CLI. From the root of your existing Next.js or
+Express project (with the JFrog `.npmrc` in place):
+
+```bash
+npx @tetrascience-npm/jumpcloud-sso setup
+```
+
+It detects your framework from `package.json` (override with `--type next` or
+`--type express`), writes the wiring files described in the quickstarts below,
+merges the required variables into `.env.example`, and prints the remaining
+manual steps (install command, secret generation, the JumpCloud redirect URI
+to register). It never overwrites existing files unless you pass `--force`,
+so re-running is safe. `--yes` skips the confirmation, `--dir` targets another
+directory, `--help` shows everything.
+
+The quickstarts below walk through the same files by hand — worth reading once
+even if the CLI writes them for you.
+
 ## Quickstart: Next.js in 5 steps
 
 Prereqs: Next.js 14+ (App Router), and the package installed from our JFrog
@@ -179,23 +200,48 @@ export const config = {
 ```
 
 **Step 5 — use the session in server code** (middleware is a convenience, not
-a security boundary — always re-check where the data lives):
+a security boundary — always re-check where the data lives). Create
+`session.ts` next to `auth.ts`:
+
+```ts
+import { createSessionTools } from '@tetrascience-npm/jumpcloud-sso/next';
+import { auth } from './auth';
+
+export const { requireSession, getSessionUser, SignedIn, SignedOut } =
+  createSessionTools(auth);
+```
+
+then in any page, layout, or server action:
 
 ```tsx
 // app/dashboard/page.tsx
-import { redirect } from 'next/navigation';
-import { auth } from '../../auth';
+import { requireSession } from '../../session';
 
 export default async function DashboardPage() {
-  const session = await auth();
-  if (!session?.user) redirect('/api/auth/signin?callbackUrl=/dashboard');
+  // Redirects to sign-in when anonymous; add `groups: ['app-admins']` to
+  // also enforce group membership (throws to the nearest error boundary).
+  const session = await requireSession({ callbackUrl: '/dashboard' });
   return (
     <p>
-      Hi {session.user.email} — groups: {session.user.groups?.join(', ')}
+      Hi {session.user?.email} — groups: {session.user?.groups?.join(', ')}
     </p>
   );
 }
 ```
+
+For conditional UI instead of a redirect, use the components:
+
+```tsx
+<SignedIn groups={['app-admins']} fallback={<p>Admins only.</p>}>
+  <AdminPanel />
+</SignedIn>
+<SignedOut>
+  <a href="/api/auth/signin">Sign in with JumpCloud</a>
+</SignedOut>
+```
+
+(`getSessionUser()` is the non-redirecting variant: `{ user, groups }` or
+`null`.)
 
 Redirect URI to register in JumpCloud:
 `http://localhost:3000/api/auth/callback/jumpcloud` (and the production
@@ -221,35 +267,39 @@ JUMPCLOUD_CLIENT_ID=
 JUMPCLOUD_CLIENT_SECRET=
 ```
 
-**Step 2 — create the SSO toolkit:**
+**Step 2 — create the SSO router:**
 
 ```ts
-import { createJumpCloudSSO } from '@tetrascience-npm/jumpcloud-sso/express';
+import { createSSORouter } from '@tetrascience-npm/jumpcloud-sso/express';
 import { resolveEnv } from '@tetrascience-npm/jumpcloud-sso/core';
 
-const sso = createJumpCloudSSO({
+const sso = createSSORouter({
   ...resolveEnv(),
   baseUrl: process.env.BASE_URL ?? 'http://localhost:3000',
   sessionSecret: process.env.SESSION_SECRET ?? '',
 });
 ```
 
-**Step 3 — mount the session middleware** (adds `req.oidc` plus `/login`,
-`/logout`, and `/callback` routes; nothing is protected yet):
+**Step 3 — mount it, once, before your routes.** One `app.use` wires the
+session middleware (`req.oidc`), the `/login`, `/logout`, and `/callback`
+routes, and the `/api/me` BFF identity endpoint (`{ user, groups }` or 401 —
+the SPA calls it on load). Nothing else is protected yet:
 
 ```ts
 import express from 'express';
 
 const app = express();
-app.use(sso.authMiddleware);
+app.use(sso.router);
 app.use(express.static('public')); // your SPA
 ```
 
-**Step 4 — add the BFF identity endpoint and protected APIs:**
+(Prefer wiring the pieces yourself — separate session middleware, custom
+`/api/me` path? `createJumpCloudSSO` returns them individually, and
+`createSSORouter` also passes them through, including a `mePath` option.)
+
+**Step 4 — guard your APIs:**
 
 ```ts
-app.get('/api/me', sso.meHandler); // { user, groups } or 401 — the SPA calls this on load
-
 app.get('/api/data', sso.requireAuth, (req, res) => {
   res.json({ hello: req.oidc.user?.email });
 });
@@ -353,15 +403,19 @@ step one of access control — `routeGroups` only refines it per-route.
 ```
 packages/core           Framework-agnostic: config defaults, normalizeGroups,
                         hasAnyGroup, resolveEnv
-packages/next           createJumpCloudAuth + createAuthMiddleware (Auth.js v5)
-packages/express        createJumpCloudSSO (express-openid-connect)
-packages/jumpcloud-sso  The ONE published package — composes the three builds
-                        into dist/{core,next,express} with subpath exports
+packages/next           createJumpCloudAuth + createAuthMiddleware +
+                        createSessionTools (Auth.js v5)
+packages/express        createJumpCloudSSO + createSSORouter
+                        (express-openid-connect)
+packages/setup          The `jumpcloud-sso setup` scaffolding CLI (package bin)
+packages/jumpcloud-sso  The ONE published package — composes the four builds
+                        into dist/{core,next,express,setup} with subpath
+                        exports and the CLI bin
 apps/example-next       Runnable Next.js 15 example (never published)
 apps/example-express    Runnable Express BFF example (never published)
 ```
 
-The three libraries are buildable Nx projects; `packages/jumpcloud-sso` is the
+The four libraries are buildable Nx projects; `packages/jumpcloud-sso` is the
 only released artifact. Its build copies each library's `dist/` into place;
 cross-entry imports use the package's own subpaths
 (`@tetrascience-npm/jumpcloud-sso/core`), which Node resolves via package

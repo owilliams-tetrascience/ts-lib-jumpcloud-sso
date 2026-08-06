@@ -1,0 +1,7 @@
+{
+  "name": "@internal/jumpcloud-sso-setup",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Internal manifest — never published. The publishable artifact is packages/jumpcloud-sso; this file exists so nx release tracks commits touching this library and keeps its version in lockstep (fixed release group)."
+}

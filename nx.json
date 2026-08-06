@@ -45,7 +45,7 @@
     }
   },
   "release": {
-    "projects": ["core", "next", "express", "jumpcloud-sso"],
+    "projects": ["core", "next", "express", "setup", "jumpcloud-sso"],
     "projectsRelationship": "fixed",
     "releaseTag": {
       "pattern": "v{version}"
