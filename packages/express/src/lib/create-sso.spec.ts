@@ -103,6 +103,19 @@ describe('createJumpCloudSSO', () => {
       ).toThrowError(/cannot be reached in production/);
     });
 
+    // The message tells the reader which URI to register; naming the default
+    // path when the caller overrode it sends them to register the wrong one.
+    it('names the configured callbackPath, not the default', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      expect(() =>
+        createJumpCloudSSO({
+          ...validOptions,
+          baseUrl: 'http://localhost:3000',
+          callbackPath: '/api/auth/callback/jumpcloud',
+        }),
+      ).toThrowError('${BASE_URL}/api/auth/callback/jumpcloud');
+    });
+
     it('allows a real public URL', () => {
       vi.stubEnv('NODE_ENV', 'production');
       expect(() =>

@@ -88,18 +88,6 @@ export function createJumpCloudSSO(
   // to set BASE_URL. The redirect_uri would silently become
   // http://localhost:3000/callback and every login would fail against a URI
   // that is only ever registered for local development.
-  if (
-    process.env['NODE_ENV'] === 'production' &&
-    LOOPBACK_BASE_URL.test(options.baseUrl)
-  ) {
-    throw new Error(
-      `[jumpcloud-sso] \`baseUrl\` is ${options.baseUrl}, which cannot be ` +
-        'reached in production — BASE_URL is probably unset. Set it to the ' +
-        'public URL of this app, and register `${BASE_URL}/callback` as a ' +
-        'redirect URI on the JumpCloud OIDC application.',
-    );
-  }
-
   const callbackPath = options.callbackPath ?? DEFAULT_CALLBACK_PATH;
   // A path missing its leading slash is joined onto baseUrl by
   // express-openid-connect without one, producing a redirect_uri like
@@ -109,7 +97,21 @@ export function createJumpCloudSSO(
     throw new Error(
       `[jumpcloud-sso] \`callbackPath\` must start with "/" — got ` +
         `"${callbackPath}". It is a path relative to \`baseUrl\`, e.g. ` +
-        '"/callback" or "/callback/jumpcloud".',
+        '"/callback" or "/api/auth/callback/jumpcloud".',
+    );
+  }
+  // Resolved before the check below so the error can name the URI this app
+  // would actually send, rather than a default the caller may have overridden.
+  if (
+    process.env['NODE_ENV'] === 'production' &&
+    LOOPBACK_BASE_URL.test(options.baseUrl)
+  ) {
+    throw new Error(
+      `[jumpcloud-sso] \`baseUrl\` is ${options.baseUrl}, which cannot be ` +
+        'reached in production — BASE_URL is probably unset. Set it to the ' +
+        'public URL of this app, and register `${BASE_URL}' +
+        callbackPath +
+        '` as a redirect URI on the JumpCloud OIDC application.',
     );
   }
 

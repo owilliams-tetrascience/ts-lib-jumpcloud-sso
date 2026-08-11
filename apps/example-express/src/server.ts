@@ -14,8 +14,9 @@ import { ADMIN_GROUP, ADMIN_GROUPS } from './groups.js';
 const port = Number(process.env.PORT ?? 3000);
 const baseUrl = process.env.BASE_URL ?? `http://localhost:${port}`;
 // Must match the path of a redirect URI registered on the JumpCloud OIDC
-// application. Ours registers /callback/jumpcloud so one application can
-// serve both examples; express-openid-connect's own default is /callback.
+// application. Ours registers only /api/auth/callback/jumpcloud — the
+// Auth.js-shaped URI it shares with example-next — so .env points here at
+// that; express-openid-connect's own default is /callback.
 const callbackPath = process.env.CALLBACK_PATH ?? '/callback';
 // Ending the JumpCloud session on logout needs BASE_URL whitelisted as a
 // post_logout_redirect_uri on the application; ours is not, so IDP_LOGOUT=false

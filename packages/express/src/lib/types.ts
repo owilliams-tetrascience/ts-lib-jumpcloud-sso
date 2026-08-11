@@ -9,16 +9,18 @@ export interface JumpCloudExpressOptions extends JumpCloudCommon {
   /**
    * The public base URL of THIS app (not JumpCloud), e.g.
    * `http://localhost:3000` in development. JumpCloud redirects the browser
-   * back to `${baseUrl}/callback` after login — that exact URL must be
-   * registered as a redirect URI on the JumpCloud OIDC application.
+   * back to `${baseUrl}${callbackPath}` after login (`/callback` unless you
+   * set {@link JumpCloudExpressOptions.callbackPath}) — that exact URL must
+   * be registered as a redirect URI on the JumpCloud OIDC application.
    */
   baseUrl: string;
   /**
    * Path where JumpCloud sends the browser back after login, relative to
    * `baseUrl`. Defaults to `/callback`. Set it when the redirect URI already
    * registered on the JumpCloud OIDC application uses a different path — e.g.
-   * `/callback/jumpcloud` to share one application with a Next.js app, or
-   * because the application predates this library. Must start with `/`.
+   * `/api/auth/callback/jumpcloud`, the Auth.js-shaped URI, to share one
+   * application with a Next.js app, or because the application predates this
+   * library. Must start with `/`.
    */
   callbackPath?: string;
   /**
