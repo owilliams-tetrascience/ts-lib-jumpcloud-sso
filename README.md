@@ -68,7 +68,7 @@ bounce work. You'll see five words constantly; here is what they mean:
 | **Client ID / client secret** | Your app's own username and password _with JumpCloud_. They identify the app, not the user. The secret is shown once when the app is registered — treat it like any production secret.                   |
 | **Redirect URI**              | The exact URL in your app where JumpCloud sends the user back after sign-in. JumpCloud refuses to redirect anywhere that isn't on its allowlist — that's what stops attackers from receiving your login. |
 | **ID token**                  | The wristband: a signed JSON document (a JWT) from JumpCloud stating who the user is — email, name, and any claims we asked for. Your app verifies the signature instead of trusting the browser.        |
-| **Groups claim**              | The field inside the ID token that lists the user's JumpCloud groups (ours is named `memberOf`). This is what route gating ("only `app-admins` may open `/admin`") is built on.                          |
+| **Groups claim**              | The field inside the ID token that lists the user's JumpCloud groups. Its name is whatever you typed into the JumpCloud app's group-attribute field — the library defaults to `memberOf`, and `apps/example-next` points at an app that uses `group`. This is what route gating ("only `app-admins` may open `/admin`") is built on.                          |
 
 ## The login flow, drawn out
 
@@ -119,8 +119,12 @@ New Application** → **Custom Application**):
 
 - [ ] Login URL: your app's base URL.
 - [ ] Attribute scopes: check **Email** and **Profile**.
-- [ ] Group attributes: enable **include group attribute**, and name it
-      **`memberOf`** (the library's default groups claim).
+- [ ] Group attributes: enable **include group attribute**, and note the name
+      you give it. **`memberOf`** is the library's default and needs no
+      further config; anything else — existing apps in our tenant use
+      **`group`** — must be passed as `groupsClaim` (or
+      `JUMPCLOUD_GROUPS_CLAIM`), or every group-gated route 403s because the
+      claim reads as absent.
 - [ ] **Bind user groups to the app** — users not in a bound group can't even
       start the login. Bind the groups you'll gate routes with (e.g.
       `app-admins`) plus whatever group represents "everyone who may use this
@@ -341,8 +345,17 @@ issuer matches _exactly_. Drop the slash and discovery fails with a confusing
 issuer-mismatch error. The library's default has the slash; if you override
 `JUMPCLOUD_ISSUER`, keep it.
 
+**The groups claim is named per app, and a mismatch is silent.** The library
+defaults to `memberOf`, but a JumpCloud app configured with any other
+attribute name (ours use `group`) makes the claim read as `undefined` — every
+user then looks like they belong to no groups and every gated route answers
+403, with nothing to distinguish that from a genuine non-member. Set
+`groupsClaim` / `JUMPCLOUD_GROUPS_CLAIM` to the name in the console. The
+Next.js integration logs a warning at sign-in listing the claims the ID token
+actually carried, which is the fastest way to spot this.
+
 **One group is a string, two groups are an array.** JumpCloud emits the
-`memberOf` claim as a bare string when the user is in exactly one bound group,
+groups claim as a bare string when the user is in exactly one bound group,
 and as an array when in two or more. Code that assumes an array works in
 testing and breaks in production. Everything in this library already runs the
 claim through `normalizeGroups()` from `/core` — use it too if you ever read
