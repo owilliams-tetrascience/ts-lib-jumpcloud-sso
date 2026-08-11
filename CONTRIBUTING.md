@@ -91,6 +91,27 @@ npx nx dev example-express   # http://localhost:3000
 They are never published or deployed by CI; they exist as living
 documentation and a local test bed.
 
+### The examples do NOT hot-reload library edits
+
+`apps/example-next/tsconfig.json` sets `"paths": {}`, deliberately wiping the
+`tsconfig.base.json` mappings so the example consumes the package exactly as a
+real consumer does: through the `@tetrascience-npm/jumpcloud-sso` symlink in
+`node_modules`, resolved via the `exports` map to
+`packages/jumpcloud-sso/dist/`.
+
+The consequence is easy to lose an afternoon to — **editing
+`packages/*/src` changes nothing the running example sees.** Source edits look
+like silent no-ops, including in the browser, because the app is still serving
+the previously composed `dist`. Rebuild and drop the Next cache:
+
+```bash
+npx nx build jumpcloud-sso && rm -rf apps/example-next/.next
+```
+
+`npx nx dev example-next` does this for you on startup (its `dependsOn:
+["^build"]`), so the trap is specifically an _already-running_ dev server.
+Restart it after touching library source.
+
 ## Repo conventions
 
 - TypeScript 5, `strict` mode, no `any` (`@ts-ignore` only with a reason).

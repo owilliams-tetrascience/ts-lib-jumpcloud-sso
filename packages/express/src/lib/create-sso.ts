@@ -12,6 +12,10 @@ import type { JumpCloudExpressOptions, JumpCloudSSO } from './types.js';
 
 const { auth, requiresAuth } = expressOpenidConnect;
 
+/** Base URLs that only ever resolve on the machine serving the request. */
+const LOOPBACK_BASE_URL =
+  /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?(\/|$)/i;
+
 /**
  * Creates everything an Express app needs for JumpCloud SSO with the BFF
  * pattern:
@@ -52,7 +56,8 @@ const { auth, requiresAuth } = expressOpenidConnect;
  * (see {@link JumpCloudExpressOptions}).
  * @returns The four building blocks described above.
  * @throws Error when `baseUrl` or `sessionSecret` is missing — these have no
- * sensible defaults.
+ * sensible defaults — or when `baseUrl` is a loopback address while
+ * `NODE_ENV=production`, which means `BASE_URL` was never set.
  */
 export function createJumpCloudSSO(
   options: JumpCloudExpressOptions,
@@ -68,6 +73,22 @@ export function createJumpCloudSSO(
       '[jumpcloud-sso] `sessionSecret` is required — generate one with ' +
         '`openssl rand -hex 32`. (This is your cookie secret, not the ' +
         'JumpCloud client secret.)',
+    );
+  }
+  // Apps conventionally write `process.env.BASE_URL ?? 'http://localhost:3000'`,
+  // which means the check above never fires on a deployment that simply forgot
+  // to set BASE_URL. The redirect_uri would silently become
+  // http://localhost:3000/callback and every login would fail against a URI
+  // that is only ever registered for local development.
+  if (
+    process.env['NODE_ENV'] === 'production' &&
+    LOOPBACK_BASE_URL.test(options.baseUrl)
+  ) {
+    throw new Error(
+      `[jumpcloud-sso] \`baseUrl\` is ${options.baseUrl}, which cannot be ` +
+        'reached in production — BASE_URL is probably unset. Set it to the ' +
+        'public URL of this app, and register `${BASE_URL}/callback` as a ' +
+        'redirect URI on the JumpCloud OIDC application.',
     );
   }
 
