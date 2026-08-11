@@ -25,6 +25,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <a href="/">Home (public)</a>
           <a href="/dashboard">Dashboard (any signed-in user)</a>
           <a href="/admin">Admin ({ADMIN_GROUP} only)</a>
+          {process.env.NODE_ENV === 'production' ? null : (
+            <a href="/debug">Claim debug (dev)</a>
+          )}
         </nav>
         {children}
       </body>
