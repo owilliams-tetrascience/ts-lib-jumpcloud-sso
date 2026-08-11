@@ -13,8 +13,8 @@ describe('applyGroupsToToken', () => {
   it('normalizes a bare-string claim (JumpCloud single-group quirk) on sign-in', () => {
     const token = applyGroupsToToken(
       baseToken,
-      { memberOf: 'app-admins' },
-      'memberOf',
+      { groups: 'app-admins' },
+      'groups',
     );
     expect(token['groups']).toEqual(['app-admins']);
   });
@@ -22,32 +22,32 @@ describe('applyGroupsToToken', () => {
   it('keeps an array claim as-is on sign-in', () => {
     const token = applyGroupsToToken(
       baseToken,
-      { memberOf: ['app-admins', 'engineering'] },
-      'memberOf',
+      { groups: ['app-admins', 'engineering'] },
+      'groups',
     );
     expect(token['groups']).toEqual(['app-admins', 'engineering']);
   });
 
   it('stores [] when the claim is missing from the profile', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const token = applyGroupsToToken(baseToken, { email: 'a@b.c' }, 'memberOf');
+    const token = applyGroupsToToken(baseToken, { email: 'a@b.c' }, 'groups');
     expect(token['groups']).toEqual([]);
   });
 
   it('warns with the claim names present when the groups claim is absent', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    applyGroupsToToken(baseToken, { sub: 'x', groups: ['a'] }, 'memberOf');
+    applyGroupsToToken(baseToken, { sub: 'x', email: 'a@b.c' }, 'groups');
     expect(warn).toHaveBeenCalledOnce();
     const message = warn.mock.calls[0]?.[0] as string;
-    expect(message).toContain('no "memberOf" claim');
+    expect(message).toContain('no "groups" claim');
     // Names, not values — an ID token carries user attributes.
-    expect(message).toContain('sub, groups');
+    expect(message).toContain('sub, email');
     expect(message).not.toContain('JUMPCLOUD_CLIENT');
   });
 
   it('does not warn when the claim is present but empty', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    const token = applyGroupsToToken(baseToken, { memberOf: '' }, 'memberOf');
+    const token = applyGroupsToToken(baseToken, { groups: '' }, 'groups');
     expect(token['groups']).toEqual([]);
     expect(warn).not.toHaveBeenCalled();
   });
@@ -64,10 +64,10 @@ describe('applyGroupsToToken', () => {
   it('leaves the token untouched on refresh (no profile present)', () => {
     const signedIn = applyGroupsToToken(
       baseToken,
-      { memberOf: 'app-admins' },
-      'memberOf',
+      { groups: 'app-admins' },
+      'groups',
     );
-    const refreshed = applyGroupsToToken(signedIn, undefined, 'memberOf');
+    const refreshed = applyGroupsToToken(signedIn, undefined, 'groups');
     expect(refreshed).toBe(signedIn);
     expect(refreshed['groups']).toEqual(['app-admins']);
   });

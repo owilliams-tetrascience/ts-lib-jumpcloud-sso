@@ -2,12 +2,12 @@
  * Normalizes the raw JumpCloud groups claim into a `string[]`.
  *
  * ── JUMPCLOUD QUIRK — READ THIS BEFORE TOUCHING GROUP LOGIC ─────────────────
- * JumpCloud does NOT always emit the group claim (`memberOf` by default) as an
+ * JumpCloud does NOT always emit the group claim (`groups` by default) as an
  * array. The claim's JSON type depends on how many groups the user is in:
  *
  *   - 0 groups   → the claim is missing (`undefined`) or empty
- *   - 1 group    → a BARE STRING:   "memberOf": "app-admins"
- *   - 2+ groups  → an array:        "memberOf": ["app-admins", "eng"]
+ *   - 1 group    → a BARE STRING:   "groups": "app-admins"
+ *   - 2+ groups  → an array:        "groups": ["app-admins", "eng"]
  *
  * Code that assumes an array works fine in testing (where test users tend to
  * be in several groups) and then breaks in production the moment a user is in
