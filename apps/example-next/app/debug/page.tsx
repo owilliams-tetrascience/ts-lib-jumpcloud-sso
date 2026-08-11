@@ -28,12 +28,36 @@ export default async function DebugPage() {
   const groups = session.user?.groups ?? [];
   const claimValue = claims?.[GROUPS_CLAIM];
 
+  // The claim arrived but never reached the session. Groups are written to
+  // the JWT only at sign-in, so this is what a session cookie minted before
+  // the current code looks like — the claims are in the cookie, the groups
+  // aren't, and no amount of reloading or restarting fixes it.
+  const staleSession = claimValue !== undefined && groups.length === 0;
+
   return (
     <main>
       <h1>Claim debug</h1>
       <p>
         Development only — this page 404s when <code>NODE_ENV=production</code>.
       </p>
+
+      {staleSession ? (
+        <p
+          style={{
+            border: '2px solid #b00',
+            padding: '0.75rem',
+            background: '#fff5f5',
+          }}
+        >
+          <strong>Your session is stale — sign out and back in.</strong> The ID
+          token carried <code>{GROUPS_CLAIM}</code>, but no groups reached the
+          session. Groups are copied onto the JWT <em>only at sign-in</em>, so a
+          cookie minted before the current code (or before you were added to the
+          group) keeps its old, empty list forever.{' '}
+          <a href="/api/auth/signout">Sign out</a>, then sign back in and reload
+          this page.
+        </p>
+      ) : null}
 
       <h2>Group gating</h2>
       <table>

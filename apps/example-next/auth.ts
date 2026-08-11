@@ -28,7 +28,7 @@ export const { handlers, auth, signIn, signOut, routeGroups } =
     // `email`/`profile` are what populate session.user. Groups do NOT ride on
     // a scope — JumpCloud emits them as an ID-token attribute (below).
     scopes: ['openid', 'email', 'profile'],
-    // Our JumpCloud app emits groups in `group`, not the package default of
+    // Our JumpCloud app emits groups in `groups`, not the package default of
     // `memberOf` — see ./groups. Deployments need no extra env var; set
     // JUMPCLOUD_GROUPS_CLAIM only to point at a differently configured app.
     groupsClaim: process.env.JUMPCLOUD_GROUPS_CLAIM ?? GROUPS_CLAIM,
