@@ -38,7 +38,7 @@ describe('buildPlan (next)', () => {
     expect(plan.envExample).toContain('AUTH_SECRET=');
     expect(plan.envExample).toContain('JUMPCLOUD_CLIENT_ID=');
     expect(plan.nextSteps[0]).toBe(
-      'Install the runtime dependencies: npm install @tetrascience-npm/jumpcloud-sso next-auth@^5.0.0-beta.32 next@^14.2.25 || ^15.2.3 || ^16',
+      "Install the runtime dependencies: npm install @tetrascience-npm/jumpcloud-sso next-auth@^5.0.0-beta.32 'next@^14.2.25 || ^15.2.3 || ^16'",
     );
   });
 
@@ -50,6 +50,13 @@ describe('buildPlan (next)', () => {
     const spec = plan.nextSteps[0];
     expect(spec).toContain('next@^14.2.25');
     expect(spec).not.toMatch(/next@[>^~]?=?1[45]\.0/);
+  });
+
+  it('quotes the next spec so the shell cannot split it on ||', () => {
+    // Unquoted, `npm install next@^14.2.25 || ^15.2.3` installs only the
+    // first range and runs the rest as commands — and npm exits 0, so the
+    // user never learns the range they got is not the range printed.
+    expect(plan.nextSteps[0]).toContain("'next@^14.2.25 || ^15.2.3 || ^16'");
   });
 
   it('does not scaffold placeholder credentials around resolveEnv', () => {

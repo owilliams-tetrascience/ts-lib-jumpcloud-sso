@@ -20,10 +20,12 @@ import { createJumpCloudAuth } from '${PKG}/next';
  * \`resolveEnv()\` reads JUMPCLOUD_CLIENT_ID / _CLIENT_SECRET / _ISSUER /
  * _GROUPS_CLAIM and throws at module load if a required one is missing, so a
  * misconfigured deployment fails immediately with an actionable message
- * instead of at the first user's sign-in. Do not swap in \`?? 'placeholder'\`
- * fallbacks to keep a build green — that turns a loud config error into a
- * silent one that only surfaces in production. Set the variables in CI too
- * (any non-empty value will do for a build that never signs anyone in).
+ * instead of at the first user's sign-in. The one exception is \`next build\`
+ * (NEXT_PHASE=phase-production-build), where it warns and substitutes
+ * placeholders — a build signs nobody in, so it need not hold credentials.
+ * Do not swap in \`?? 'placeholder'\` fallbacks of your own to keep a build
+ * green: those survive into production and defer the failure to the first
+ * user's sign-in, which is exactly what the build-phase exception avoids.
  */
 export const {
   handlers,

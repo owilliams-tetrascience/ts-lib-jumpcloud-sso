@@ -72,9 +72,24 @@ export function dependenciesFor(type: ProjectType): string[] {
     : ['@tetrascience-npm/jumpcloud-sso', 'express-openid-connect@^2'];
 }
 
+/**
+ * Single-quotes a dependency spec that the shell would otherwise mangle.
+ *
+ * The `next` spec contains `||`, which a shell reads as "or else": pasting
+ * `npm install next@^14.2.25 || ^15.2.3` installs only the first range and
+ * then tries to RUN `^15.2.3` — and because npm exits 0, the failure is
+ * invisible. The scaffold's whole point is a version where middleware cannot
+ * be bypassed, so this cannot be left to chance.
+ */
+function shellQuote(spec: string): string {
+  return /[|<>()\s]/.test(spec) ? `'${spec}'` : spec;
+}
+
 /** Builds the complete scaffolding plan. Pure — safe to unit test. */
 export function buildPlan(type: ProjectType, shape: ProjectShape): SetupPlan {
-  const install = `${INSTALL[shape.packageManager]} ${dependenciesFor(type).join(' ')}`;
+  const install = `${INSTALL[shape.packageManager]} ${dependenciesFor(type)
+    .map(shellQuote)
+    .join(' ')}`;
 
   if (type === 'next') {
     // With a `src` directory, ALL of these live under src/ (Next.js reads

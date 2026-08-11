@@ -17,12 +17,12 @@ const debugClaims = process.env.NODE_ENV !== 'production';
  * One place to configure SSO for the whole app.
  *
  * `resolveEnv()` throws at module load when JUMPCLOUD_CLIENT_ID or
- * _CLIENT_SECRET is missing. That is deliberate, and it is why there are no
- * `?? 'placeholder-client-id'` fallbacks here: a fallback keeps CI builds
- * green by deferring the failure to the first real user's sign-in, in
- * production, with an error that points at JumpCloud rather than at the unset
- * variable. Set the variables in CI too — any non-empty value works for a
- * build that never signs anyone in.
+ * _CLIENT_SECRET is missing — except during `next build`, where it warns and
+ * substitutes placeholders instead, since a build signs nobody in. That is
+ * why there are no `?? 'placeholder-client-id'` fallbacks here: a hand-written
+ * fallback cannot tell a build from a deployment, so it keeps CI green by
+ * deferring the failure to the first real user's sign-in, in production, with
+ * an error that points at JumpCloud rather than at the unset variable.
  *
  * For local development, put real values in `.env.local` — see .env.example.
  */
