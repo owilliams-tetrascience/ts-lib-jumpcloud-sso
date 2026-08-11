@@ -17,8 +17,36 @@ export interface JumpCloudExpressOptions extends JumpCloudCommon {
    * Secret used to encrypt and sign the session cookie. This is YOUR secret,
    * not the JumpCloud client secret — generate one with
    * `openssl rand -hex 32` and keep it out of git.
+   *
+   * Must be at least 32 characters, must not look like a placeholder, and
+   * must not be a repeated character. Anyone who recovers it can forge a
+   * session cookie naming any user and claiming any JumpCloud group, which
+   * every guard here will then honor.
    */
   sessionSecret: string;
+  /**
+   * Absolute session lifetime in seconds — the hard cap after which the user
+   * must sign in again regardless of activity. Defaults to
+   * `DEFAULT_SESSION_MAX_AGE_SECONDS` (8 hours).
+   *
+   * This is your deprovisioning lag: JumpCloud groups are read once at
+   * sign-in, so removing someone from a group only takes effect for existing
+   * sessions when they expire. Raising this raises that lag by the same
+   * amount.
+   */
+  sessionMaxAge?: number;
+  /**
+   * Opt out of the production HTTPS requirement on `baseUrl`.
+   *
+   * With a plain-HTTP `baseUrl`, express-openid-connect refuses to set the
+   * `Secure` attribute on the session cookie — so the cookie carrying your ID,
+   * access, and refresh tokens travels in cleartext. Only set this for an app
+   * genuinely reachable exclusively over a trusted internal network, and
+   * prefer fixing the transport instead.
+   *
+   * @defaultValue false
+   */
+  allowInsecureBaseUrl?: boolean;
 }
 
 /** What {@link createJumpCloudSSO} returns. */
@@ -42,8 +70,10 @@ export interface JumpCloudSSO {
    * unauthenticated, `403` JSON when authenticated but not in any of the
    * allowed groups, `next()` otherwise.
    *
-   * @param allowed - JumpCloud group NAMES (not IDs). An empty array means
-   * "any signed-in user".
+   * @param allowed - JumpCloud group NAMES (not IDs). Must contain at least
+   * one name: an empty array throws at mount time rather than admitting every
+   * signed-in user, since that is nearly always an unresolved config value.
+   * Use {@link requireAuth} when you really do mean "any signed-in user".
    */
   requireGroup: (allowed: string[]) => RequestHandler;
   /**

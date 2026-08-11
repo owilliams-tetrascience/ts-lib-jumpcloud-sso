@@ -100,11 +100,15 @@ describe('requireGroup', () => {
     expect(res.status).toHaveBeenCalledWith(403);
   });
 
-  it('treats an empty allowed list as "any signed-in user"', () => {
-    const res = mockRes();
-    const next = vi.fn() as unknown as NextFunction;
-    requireGroup([])(mockReq(authenticated({})), res, next);
-    expect(next).toHaveBeenCalledOnce();
+  it('refuses an empty allowed list at mount time instead of admitting everyone', () => {
+    // `hasAnyGroup([], [])` is true — "no gating configured" — which is the
+    // right answer for the predicate and the wrong direction to fail for a
+    // guard someone explicitly reached for. An empty list here almost always
+    // means an env var or lookup came back empty, and the route would then
+    // read as gated while admitting every signed-in user. Throwing at mount
+    // makes that a boot failure rather than a silent authorization hole;
+    // `requireAuth` is the spelling for "any signed-in user".
+    expect(() => requireGroup([])).toThrowError(/empty group list/);
   });
 
   it('honors a custom groups claim name', () => {

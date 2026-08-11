@@ -1,4 +1,5 @@
 import {
+  assertGatedGroups,
   hasAnyGroup,
   normalizeGroups,
 } from '@tetrascience-npm/jumpcloud-sso/core';
@@ -19,9 +20,11 @@ function groupsFromRequest(req: Request, groupsClaim: string): string[] {
  * The returned factory produces Express middleware that:
  * - responds `401` JSON when the request has no authenticated session;
  * - responds `403` JSON when the user is signed in but belongs to none of
- *   the `allowed` JumpCloud groups (per core's `hasAnyGroup`, an empty
- *   `allowed` list means "any signed-in user");
+ *   the `allowed` JumpCloud groups;
  * - calls `next()` otherwise.
+ *
+ * An empty `allowed` list throws when the middleware is built, rather than
+ * degrading to "any signed-in user" — see core's `assertGatedGroups`.
  *
  * Exposed separately from {@link createJumpCloudSSO} so the gating behavior
  * is unit-testable with a mocked `req.oidc`.
@@ -31,8 +34,11 @@ function groupsFromRequest(req: Request, groupsClaim: string): string[] {
 export function createRequireGroup(
   groupsClaim: string,
 ): (allowed: string[]) => RequestHandler {
-  return (allowed: string[]): RequestHandler =>
-    (req, res, next) => {
+  return (allowed: string[]): RequestHandler => {
+    // Fail at mount time, not per-request: `requireGroup([])` would otherwise
+    // admit every signed-in user while reading like a group gate.
+    assertGatedGroups(allowed, 'requireGroup()');
+    return (req, res, next) => {
       if (!req.oidc?.isAuthenticated()) {
         res.status(401).json({
           error: 'Unauthorized',
@@ -51,6 +57,7 @@ export function createRequireGroup(
       }
       next();
     };
+  };
 }
 
 /**
