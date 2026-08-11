@@ -1,11 +1,15 @@
 import type { Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { applyGroupsToSession, applyGroupsToToken } from './claims.js';
 
 const baseToken: JWT = { sub: 'user-1', email: 'ada@tetrascience.com' };
 
 describe('applyGroupsToToken', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('normalizes a bare-string claim (JumpCloud single-group quirk) on sign-in', () => {
     const token = applyGroupsToToken(
       baseToken,
@@ -25,8 +29,27 @@ describe('applyGroupsToToken', () => {
   });
 
   it('stores [] when the claim is missing from the profile', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     const token = applyGroupsToToken(baseToken, { email: 'a@b.c' }, 'memberOf');
     expect(token['groups']).toEqual([]);
+  });
+
+  it('warns with the claim names present when the groups claim is absent', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    applyGroupsToToken(baseToken, { sub: 'x', groups: ['a'] }, 'memberOf');
+    expect(warn).toHaveBeenCalledOnce();
+    const message = warn.mock.calls[0]?.[0] as string;
+    expect(message).toContain('no "memberOf" claim');
+    // Names, not values — an ID token carries user attributes.
+    expect(message).toContain('sub, groups');
+    expect(message).not.toContain('JUMPCLOUD_CLIENT');
+  });
+
+  it('does not warn when the claim is present but empty', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const token = applyGroupsToToken(baseToken, { memberOf: '' }, 'memberOf');
+    expect(token['groups']).toEqual([]);
+    expect(warn).not.toHaveBeenCalled();
   });
 
   it('reads the configured claim name', () => {

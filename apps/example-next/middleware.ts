@@ -5,7 +5,8 @@ import { auth, routeGroups } from './auth';
  * Route protection:
  * - `/` (home) is public;
  * - everything else requires a JumpCloud session;
- * - `/admin` additionally requires the `app-admins` group (403 otherwise).
+ * - `/admin` additionally requires the admin group from ./groups (403
+ *   otherwise).
  *
  * Middleware is a convenience, not a security boundary — each protected page
  * ALSO re-checks the session server-side (see app/dashboard/page.tsx and
