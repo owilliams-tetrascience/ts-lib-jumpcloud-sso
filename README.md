@@ -68,7 +68,7 @@ bounce work. You'll see five words constantly; here is what they mean:
 | **Client ID / client secret** | Your app's own username and password _with JumpCloud_. They identify the app, not the user. The secret is shown once when the app is registered — treat it like any production secret.                   |
 | **Redirect URI**              | The exact URL in your app where JumpCloud sends the user back after sign-in. JumpCloud refuses to redirect anywhere that isn't on its allowlist — that's what stops attackers from receiving your login. |
 | **ID token**                  | The wristband: a signed JSON document (a JWT) from JumpCloud stating who the user is — email, name, and any claims we asked for. Your app verifies the signature instead of trusting the browser.        |
-| **Groups claim**              | The field inside the ID token that lists the user's JumpCloud groups. Its name is whatever you typed into the JumpCloud app's group-attribute field — the library defaults to `memberOf`, and `apps/example-next` points at an app that uses `groups`. This is what route gating ("only `app-admins` may open `/admin`") is built on.                          |
+| **Groups claim**              | The field inside the ID token that lists the user's JumpCloud groups. Its name is whatever you typed into the JumpCloud app's group-attribute field — the library defaults to `groups`, and `apps/example-next` points at an app that uses `groups`. This is what route gating ("only `app-admins` may open `/admin`") is built on.                          |
 
 ## The login flow, drawn out
 
@@ -117,10 +117,20 @@ New Application** → **Custom Application**):
   pre-registered redirect urls."_ Express, built on a different library,
   genuinely has no suffix.
 
+  Register a URI per stack — JumpCloud accepts several on one application, and
+  the same error appears when a stack's path is missing. If you cannot add
+  one (or want both examples on one application), point Express at a path
+  that _is_ registered with `callbackPath`:
+
+  ```ts
+  createSSORouter({ ...resolveEnv(), baseUrl, sessionSecret,
+    callbackPath: '/callback/jumpcloud' });
+  ```
+
 - [ ] Login URL: your app's base URL.
 - [ ] Attribute scopes: check **Email** and **Profile**.
 - [ ] Group attributes: enable **include group attribute**, and note the name
-      you give it. **`memberOf`** is the library's default and needs no
+      you give it. **`groups`** is the library's default and needs no
       further config; anything else — existing apps in our tenant use
       **`groups`** — must be passed as `groupsClaim` (or
       `JUMPCLOUD_GROUPS_CLAIM`), or every group-gated route 403s because the
@@ -333,7 +343,9 @@ const { user, groups } = await res.json();
 ```
 
 Redirect URI to register in JumpCloud: `http://localhost:3000/callback` (and
-the production equivalent). A runnable version lives in
+the production equivalent) — or pass `callbackPath` to match a URI that is
+already registered, e.g. `callbackPath: '/callback/jumpcloud'`. A runnable
+version lives in
 [apps/example-express](apps/example-express).
 
 ## Gotchas
@@ -346,7 +358,7 @@ issuer-mismatch error. The library's default has the slash; if you override
 `JUMPCLOUD_ISSUER`, keep it.
 
 **The groups claim is named per app, and a mismatch is silent.** The library
-defaults to `memberOf`, but a JumpCloud app configured with any other
+defaults to `groups`, but a JumpCloud app configured with any other
 attribute name (ours use `groups`) makes the claim read as `undefined` — every
 user then looks like they belong to no groups and every gated route answers
 403, with nothing to distinguish that from a genuine non-member. Set
@@ -458,6 +470,14 @@ integration sets `idpLogout: true`, so `/logout` clears the app session _and_
 ends the JumpCloud session; otherwise the next visit would silently sign you
 straight back in, which reads as "logout didn't work". (On shared machines,
 that silent re-login is a real problem — hence ending both.)
+
+Ending the JumpCloud session sends `post_logout_redirect_uri`, and JumpCloud
+refuses the whole request — _"not whitelisted as a post_logout_redirect_uri
+for the client"_ — unless that exact URL is registered on the application, in
+the field next to the redirect URIs. Register your `BASE_URL` there. If you
+cannot, pass `idpLogout: false` for a local-only logout (app cookie cleared,
+JumpCloud session alive), or `postLogoutRedirect` to match a URL that is
+whitelisted.
 
 **Login fails with "user is not assigned to this application" (or similar).**
 The user isn't in any user group bound to the JumpCloud app. Binding groups is
