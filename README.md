@@ -102,11 +102,21 @@ New Application** → **Custom Application**):
 - [ ] Grant types: **Authorization Code** and **Refresh Token**.
 - [ ] Client authentication type: **Client Secret Post** (this library is
       configured to match).
-- [ ] Redirect URI — the **exact** URL for your stack, one per environment:
+- [ ] Redirect URI — the **exact** URL for your stack, one per environment.
+      The two stacks use different paths; copy them character for character:
   - Next.js: `https://your-app.example.com/api/auth/callback/jumpcloud`
     (local dev: `http://localhost:3000/api/auth/callback/jumpcloud`)
   - Express: `https://your-app.example.com/callback`
     (local dev: `http://localhost:3000/callback`)
+
+  The trailing **`/jumpcloud`** on the Next.js path is not decoration: Auth.js
+  appends the provider id to its callback route, so the endpoint only exists at
+  `/api/auth/callback/jumpcloud`. Register a bare `/api/auth/callback` and
+  every sign-in fails with JumpCloud's `invalid_request` — _"the
+  `redirect_uri` parameter does not match any of the OAuth 2.0 Client's
+  pre-registered redirect urls."_ Express, built on a different library,
+  genuinely has no suffix.
+
 - [ ] Login URL: your app's base URL.
 - [ ] Attribute scopes: check **Email** and **Profile**.
 - [ ] Group attributes: enable **include group attribute**, and name it
@@ -338,6 +348,23 @@ testing and breaks in production. Everything in this library already runs the
 claim through `normalizeGroups()` from `/core` — use it too if you ever read
 the claim yourself.
 
+**JumpCloud requires `state`, even with PKCE.** Auth.js defaults an OIDC
+provider's `checks` to `["pkce"]` alone and omits the `state` parameter
+entirely, on the reasoning that PKCE already covers CSRF. JumpCloud disagrees
+and rejects the authorization request:
+
+```
+invalid_state — The state is missing or does not have enough characters and is
+therefore considered too weak. Request parameter 'state' must be at least be 8
+characters long to ensure sufficient entropy.
+```
+
+Auth.js then reports that back as the generic `OAuthCallbackError`, which the
+default sign-in page renders as the memorably useless "Try signing in with a
+different account." So `createJumpCloudAuth` sets `checks: ['pkce', 'state']`
+explicitly. Don't remove it, and don't override `checks` through `authConfig`
+without keeping `state`.
+
 **Route gating uses group NAMES, not IDs.** `routeGroups: { '/admin':
 ['app-admins'] }` matches the literal string JumpCloud puts in the claim. If
 someone renames the group in JumpCloud, gating silently breaks (nobody gets
@@ -348,10 +375,27 @@ group renames as breaking changes and coordinate them.
 redirects to allowlisted URIs, and `my-app-git-branch-abc123.vercel.app`
 changes per branch — you can't register them all. Either (a) log in only via a
 canonical domain (register the production/staging URL and test SSO there), or
-(b) use Auth.js's redirect-proxy support: set `AUTH_REDIRECT_PROXY_URL` to a
-stable deployment's `/api/auth` URL and register _that_ single callback in
-JumpCloud; previews then relay through it (the library passes any extra
-Auth.js config through `authConfig`, e.g. `redirectProxyUrl`).
+(b) use Auth.js's redirect-proxy support:
+
+```sh
+# Vercel → Settings → Environment Variables → Preview only
+AUTH_REDIRECT_PROXY_URL=https://your-app.example.com/api/auth
+```
+
+Register only that stable callback in JumpCloud; previews relay through it. No
+code change is needed — Auth.js reads this variable itself. Production and
+Preview must share the same `AUTH_SECRET` for the relay to work.
+
+Do **not** reach for `AUTH_URL` instead. Pinning it to the canonical domain
+makes the callback land on a _different deployment_ than the one that set the
+PKCE and state cookies, which fails in a much more confusing way.
+
+**`AUTH_SECRET` must be set in every environment.** The library throws at
+wiring time when it is missing, rather than letting the app boot and fail at
+the first sign-in. `next build` is exempt (it warns instead), because CI
+legitimately builds without runtime secrets — so a deployment that is missing
+the variable still builds green. Set it for Production, Preview, _and_
+Development, and use the same value across them so sessions survive promotion.
 
 **Middleware is a convenience, not a security boundary.** The Next.js
 middleware gives fast redirects and nice 401/403s, but it runs in front of the
