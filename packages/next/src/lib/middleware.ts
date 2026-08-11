@@ -1,3 +1,4 @@
+import { assertGatedGroups } from '@tetrascience-npm/jumpcloud-sso/core';
 import type { NextAuthRequest, NextAuthResult } from 'next-auth';
 import type { NextFetchEvent, NextMiddleware } from 'next/server';
 import { decideAccess } from './route-guards.js';
@@ -60,6 +61,12 @@ export function createAuthMiddleware(
   auth: NextAuthResult['auth'],
   options: AuthMiddlewareOptions = {},
 ): NextMiddleware {
+  // Fail at module load rather than per-request: an empty allow-list reads
+  // like a gate and admits every signed-in user.
+  for (const [prefix, groups] of Object.entries(options.routeGroups ?? {})) {
+    assertGatedGroups(groups, `routeGroups["${prefix}"]`);
+  }
+
   // The explicit (request, event) signature selects NextAuth's middleware
   // overload rather than its route-handler overload.
   return auth((request: NextAuthRequest, _event: NextFetchEvent) => {

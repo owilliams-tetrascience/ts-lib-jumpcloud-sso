@@ -1,4 +1,7 @@
-import { hasAnyGroup } from '@tetrascience-npm/jumpcloud-sso/core';
+import {
+  assertGatedGroups,
+  hasAnyGroup,
+} from '@tetrascience-npm/jumpcloud-sso/core';
 import type { NextAuthResult, Session } from 'next-auth';
 import { redirect } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -23,8 +26,12 @@ export interface SessionToolsOptions {
 /** Options for {@link SessionTools.requireSession}. */
 export interface RequireSessionOptions {
   /**
-   * JumpCloud group NAMES (not IDs); membership in any one suffices. Empty
-   * or omitted means "any signed-in user".
+   * JumpCloud group NAMES (not IDs); membership in any one suffices.
+   *
+   * Omit it for "any signed-in user". An empty array throws rather than
+   * meaning the same thing — it is nearly always an unresolved config value,
+   * and silently admitting everyone through a check that reads as a gate is
+   * the wrong direction to fail.
    */
   groups?: string[];
   /**
@@ -40,7 +47,10 @@ export interface RequireSessionOptions {
 export interface SignedInProps {
   /** Rendered when the user is signed in (and passes `groups`, if given). */
   children: ReactNode;
-  /** JumpCloud group NAMES; membership in any one suffices. */
+  /**
+   * JumpCloud group NAMES; membership in any one suffices. Omit for "any
+   * signed-in user"; an empty array throws.
+   */
   groups?: string[];
   /** Rendered instead of `children` when the check fails. Default: nothing. */
   fallback?: ReactNode;
@@ -131,12 +141,18 @@ export function createSessionTools(
     return session?.user ? session : null;
   }
 
-  function passesGroups(session: Session, groups?: string[]): boolean {
+  function passesGroups(
+    session: Session,
+    groups: string[] | undefined,
+  ): boolean {
     return hasAnyGroup(session.user?.groups ?? [], groups ?? []);
   }
 
   return {
     async requireSession(opts: RequireSessionOptions = {}): Promise<Session> {
+      // Validated before the session is read, so a bad group list fails the
+      // same way for signed-out users as for signed-in ones.
+      assertGatedGroups(opts.groups, 'requireSession({ groups })');
       const session = await readSession();
       if (!session) {
         const target = opts.callbackUrl
@@ -165,6 +181,11 @@ export function createSessionTools(
     },
 
     async SignedIn({ children, groups, fallback }: SignedInProps) {
+      // Asserted before the session is read, not inside passesGroups: the
+      // signed-out branch short-circuits before that call, so an empty group
+      // list would otherwise go unreported for exactly the visitors it is
+      // supposed to keep out.
+      assertGatedGroups(groups, '<SignedIn groups={...}>');
       const session = await readSession();
       if (!session || !passesGroups(session, groups)) {
         return fallback ?? null;
