@@ -62,13 +62,13 @@ password, managed in one place, revoked in one place when someone offboards.
 OIDC (OpenID Connect) is the protocol apps and JumpCloud speak to make the
 bounce work. You'll see five words constantly; here is what they mean:
 
-| Word                          | Meaning                                                                                                                                                                                                  |
-| ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Issuer**                    | JumpCloud's address: `https://oauth.id.jumpcloud.com/`. Where your app sends people to sign in, and whose signature it trusts. (Keep the trailing slash — see [Gotchas](#gotchas).)                      |
-| **Client ID / client secret** | Your app's own username and password _with JumpCloud_. They identify the app, not the user. The secret is shown once when the app is registered — treat it like any production secret.                   |
-| **Redirect URI**              | The exact URL in your app where JumpCloud sends the user back after sign-in. JumpCloud refuses to redirect anywhere that isn't on its allowlist — that's what stops attackers from receiving your login. |
-| **ID token**                  | The wristband: a signed JSON document (a JWT) from JumpCloud stating who the user is — email, name, and any claims we asked for. Your app verifies the signature instead of trusting the browser.        |
-| **Groups claim**              | The field inside the ID token that lists the user's JumpCloud groups. Its name is whatever you typed into the JumpCloud app's group-attribute field — the library defaults to `memberOf`, and `apps/example-next` points at an app that uses `groups`. This is what route gating ("only `app-admins` may open `/admin`") is built on.                          |
+| Word                          | Meaning                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Issuer**                    | JumpCloud's address: `https://oauth.id.jumpcloud.com/`. Where your app sends people to sign in, and whose signature it trusts. (Keep the trailing slash — see [Gotchas](#gotchas).)                                                                                                                                                   |
+| **Client ID / client secret** | Your app's own username and password _with JumpCloud_. They identify the app, not the user. The secret is shown once when the app is registered — treat it like any production secret.                                                                                                                                                |
+| **Redirect URI**              | The exact URL in your app where JumpCloud sends the user back after sign-in. JumpCloud refuses to redirect anywhere that isn't on its allowlist — that's what stops attackers from receiving your login.                                                                                                                              |
+| **ID token**                  | The wristband: a signed JSON document (a JWT) from JumpCloud stating who the user is — email, name, and any claims we asked for. Your app verifies the signature instead of trusting the browser.                                                                                                                                     |
+| **Groups claim**              | The field inside the ID token that lists the user's JumpCloud groups. Its name is whatever you typed into the JumpCloud app's group-attribute field — the library defaults to `memberOf`, and `apps/example-next` points at an app that uses `groups`. This is what route gating ("only `app-admins` may open `/admin`") is built on. |
 
 ## The login flow, drawn out
 
@@ -118,6 +118,11 @@ New Application** → **Custom Application**):
   genuinely has no suffix.
 
 - [ ] Login URL: your app's base URL.
+- [ ] **Post-logout redirect URI** (optional but recommended) — where
+      JumpCloud returns the browser after ending the session. Needed only if
+      you pass `postLogoutRedirect`; JumpCloud rejects the whole logout request
+      if the URI it receives is not registered, which looks like a broken
+      logout. Leave the option unset and JumpCloud uses its own page instead.
 - [ ] Attribute scopes: check **Email** and **Profile**.
 - [ ] Group attributes: enable **include group attribute**, and note the name
       you give it. **`memberOf`** is the library's default and needs no
@@ -155,8 +160,8 @@ even if the CLI writes them for you.
 
 ## Quickstart: Next.js in 5 steps
 
-Prereqs: Next.js 14+ (App Router), and the package installed from our JFrog
-registry:
+Prereqs: **Next.js `>=14.2.25` or `>=15.2.3`** (App Router), and the package
+installed from our JFrog registry:
 
 ```bash
 # .npmrc in your app repo (once):
@@ -164,14 +169,34 @@ registry:
 npm install @tetrascience-npm/jumpcloud-sso next-auth@^5.0.0-beta.32
 ```
 
+> **The Next.js floor is a security floor, not a compatibility one.**
+> CVE-2025-29927 (CVSS 9.1) lets any request skip middleware entirely by
+> sending an `x-middleware-subrequest` header — which turns
+> `createAuthMiddleware` into a no-op and walks an unauthenticated request
+> straight onto your pages. Patched in **14.2.25**, **15.2.3**, **13.5.9**, and
+> **12.3.5**. The `peerDependencies` range refuses anything older, so `npm
+install` will tell you. If you are pinned to a vulnerable version for other
+> reasons, block that header at your edge and treat middleware as decorative
+> until you upgrade.
+
 **Step 1 — environment.** Create `.env.local` (never commit it):
 
 ```bash
 AUTH_SECRET=            # npx auth secret   (or: openssl rand -base64 32)
-AUTH_TRUST_HOST=true    # needed when not on Vercel
 JUMPCLOUD_CLIENT_ID=    # from the JumpCloud app you registered
 JUMPCLOUD_CLIENT_SECRET=
 ```
+
+`AUTH_SECRET` must be **at least 32 characters** and not a placeholder — the
+library refuses to start otherwise. It signs the session JWT that carries your
+JumpCloud groups, so anyone who recovers it can mint a session for any user in
+any group, and every guard here will honor it. It is not the JumpCloud client
+secret.
+
+Not on Vercel? Set `AUTH_URL=https://your-app.example.com` so Auth.js knows its
+own origin. Reach for `AUTH_TRUST_HOST=true` only for local dev or behind a
+proxy that **strips inbound `X-Forwarded-Host`** — otherwise an attacker can
+set that header and steer your post-sign-in redirect to their own site.
 
 **Step 2 — create `auth.ts`** at the project root:
 
@@ -179,14 +204,26 @@ JUMPCLOUD_CLIENT_SECRET=
 import { createJumpCloudAuth } from '@tetrascience-npm/jumpcloud-sso/next';
 import { resolveEnv } from '@tetrascience-npm/jumpcloud-sso/core';
 
-export const { handlers, auth, signIn, signOut, routeGroups } =
-  createJumpCloudAuth({
-    ...resolveEnv(), // reads the JUMPCLOUD_* env vars
-    routeGroups: {
-      '/admin': ['app-admins'], // JumpCloud group NAMES
-    },
-  });
+export const {
+  handlers,
+  auth,
+  signIn,
+  signOut,
+  signOutEverywhere,
+  routeGroups,
+} = createJumpCloudAuth({
+  ...resolveEnv(), // reads the JUMPCLOUD_* env vars
+  routeGroups: {
+    '/admin': ['app-admins'], // JumpCloud group NAMES
+  },
+});
 ```
+
+Call `resolveEnv()` directly — don't write `?? 'placeholder-client-id'`
+fallbacks to keep CI green. `resolveEnv()` already warns instead of throwing
+during `next build`, and a fallback survives into production, where it defers
+the failure to your first real user's sign-in with an error that points at
+JumpCloud rather than at the unset variable.
 
 **Step 3 — mount the Auth.js routes.** Create
 `app/api/auth/[...nextauth]/route.ts`:
@@ -257,6 +294,29 @@ For conditional UI instead of a redirect, use the components:
 (`getSessionUser()` is the non-redirecting variant: `{ user, groups }` or
 `null`.)
 
+**Step 6 — sign out of BOTH sessions.** Use `signOutEverywhere` as a server
+action:
+
+```tsx
+import { signOutEverywhere } from '../auth';
+
+<form action={signOutEverywhere}>
+  <button type="submit">Sign out</button>
+</form>;
+```
+
+Auth.js's own `signOut()` (and the `/api/auth/signout` page) deletes your app's
+cookie and stops there. The JumpCloud session survives it, so the next "Sign
+in" click sails through with no prompt and puts the user straight back in — on
+a personal laptop a confusing no-op, on a shared machine a handover of the
+previous user's account. `signOutEverywhere()` clears the local session first,
+then redirects to JumpCloud's `end_session_endpoint` with `id_token_hint`.
+
+To come back to your own app afterwards, pass `postLogoutRedirect` to
+`createJumpCloudAuth` — and register that exact URL on the JumpCloud
+application, or JumpCloud rejects the logout. Off-origin values throw rather
+than being silently dropped, so this can't become an open redirect.
+
 Redirect URI to register in JumpCloud:
 `http://localhost:3000/api/auth/callback/jumpcloud` (and the production
 equivalent). A runnable version of all of this lives in
@@ -280,6 +340,16 @@ SESSION_SECRET=                  # openssl rand -hex 32 (cookie secret, NOT the 
 JUMPCLOUD_CLIENT_ID=
 JUMPCLOUD_CLIENT_SECRET=
 ```
+
+`SESSION_SECRET` must be at least 32 characters — the session cookie holds your
+ID, access, and refresh tokens _and_ answers every auth check, so a guessable
+one is a full authorization bypass, not a hygiene nit.
+
+In production `BASE_URL` must be **`https://`**. express-openid-connect refuses
+to mark the session cookie `Secure` on a non-HTTPS origin, so a plain-HTTP
+`BASE_URL` ships those tokens in cleartext; the library rejects it at startup.
+For an app genuinely reachable only over a trusted internal network, opt out
+explicitly with `allowInsecureBaseUrl: true`.
 
 **Step 2 — create the SSO router:**
 
@@ -420,11 +490,58 @@ Development, and use the same value across them so sessions survive promotion.
 
 **Middleware is a convenience, not a security boundary.** The Next.js
 middleware gives fast redirects and nice 401/403s, but it runs in front of the
-route — misconfigure the matcher (or hit a future framework bug) and a request
-can reach your code without passing through it. Every server component, route
+route — misconfigure the matcher (or hit a framework bug) and a request can
+reach your code without passing through it. This is not hypothetical:
+CVE-2025-29927 was exactly that bug, and a single request header disabled
+middleware entirely on every unpatched Next.js. Every server component, route
 handler, and server action that touches sensitive data must re-check
 `await auth()` (and the group, via `hasAnyGroup`) itself. The example app
 demonstrates this on every protected page.
+
+**Sessions expire after 8 hours, and that number is your deprovisioning lag.**
+JumpCloud groups are read from the ID token once, at sign-in, and then ride in
+the session cookie; nothing re-reads them, because a JWT session never calls
+back to JumpCloud. So removing someone from a group in JumpCloud does not take
+effect for their current session — every gate here keeps honoring the old group
+list until the session expires. This package defaults `session.maxAge` to 8
+hours rather than inheriting Auth.js's 30 days (and sets an 8-hour
+`absoluteDuration` on Express, which otherwise renews indefinitely on
+activity). Raise it and you raise the revocation window by the same amount:
+
+```ts
+createJumpCloudAuth({
+  ...resolveEnv(),
+  authConfig: { session: { maxAge: 60 * 60 } }, // 1 hour
+});
+```
+
+If you need immediate revocation, that needs a database session strategy and an
+Auth.js adapter, which this package does not ship. Until then, "remove from the
+group" means "within 8 hours" — say so when you write the offboarding runbook.
+
+**Secrets have a floor, and the library enforces it.** `AUTH_SECRET` and
+`sessionSecret` must be at least 32 characters, not a placeholder, and not a
+repeated character. This is stricter than the underlying libraries on purpose:
+express-openid-connect accepts any 8-character string, and Auth.js enforces no
+minimum at all. In both integrations that secret _is_ the session — Express
+answers `req.oidc.isAuthenticated()` straight from the encrypted cookie, and
+Next reads `groups` off a signed JWT — so recovering it lets someone forge a
+session for any user in any group, with no IdP round-trip left to catch it.
+
+**An empty group list throws.** `requireGroup([])`,
+`requireSession({ groups: [] })`, `<SignedIn groups={[]}>`, and
+`routeGroups: { '/admin': [] }` all fail loudly instead of admitting every
+signed-in user. An empty list here is almost always an environment variable or
+lookup that came back empty, and the alternative is a route that reads as gated
+while being wide open. "Any signed-in user" has its own spelling: `requireAuth`
+on Express, or `requireSession()` with no `groups` on Next.
+
+**`state` and `pkce` cannot be removed from `checks`.** You can add `nonce`
+alongside them for defense in depth, but test one real login first — JumpCloud
+must echo the nonce back in the ID token, and a provider that does not will
+fail every sign-in. It is off by default because this is authorization-code
+flow with PKCE S256 over a back-channel exchange, which leaves no ID-token
+injection point for a nonce to close.
 
 ## FAQ
 
@@ -453,11 +570,18 @@ Put the team's JumpCloud group on the route. Next.js:
 
 **Why does logout send me to JumpCloud?**
 Because your app's session is only half the story — the wristband analogy
-again: leaving one stage doesn't take the wristband off. The Express
-integration sets `idpLogout: true`, so `/logout` clears the app session _and_
-ends the JumpCloud session; otherwise the next visit would silently sign you
-straight back in, which reads as "logout didn't work". (On shared machines,
-that silent re-login is a real problem — hence ending both.)
+again: leaving one stage doesn't take the wristband off. Both integrations end
+both sessions, by different mechanisms:
+
+- **Express**: automatic. `createJumpCloudSSO` sets `idpLogout: true`, so the
+  built-in `/logout` route clears the app session and redirects to JumpCloud.
+- **Next.js**: use `signOutEverywhere()` from `createJumpCloudAuth`. Auth.js's
+  own `signOut()` and its `/api/auth/signout` page clear only the local
+  cookie — if you wire those up directly, you have a half-logout.
+
+Skip it and the next visit signs you straight back in with no prompt, which
+reads as "logout didn't work". On a shared machine it is worse than confusing:
+it hands the next person at the keyboard the previous user's account.
 
 **Login fails with "user is not assigned to this application" (or similar).**
 The user isn't in any user group bound to the JumpCloud app. Binding groups is

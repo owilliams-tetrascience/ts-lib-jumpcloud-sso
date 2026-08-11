@@ -1,3 +1,4 @@
+import { signOutEverywhere } from '../auth';
 import { ADMIN_GROUPS } from '../groups';
 import { getSessionUser, SignedIn, SignedOut } from '../session';
 
@@ -31,9 +32,19 @@ export default async function HomePage() {
             You are an admin — try the <a href="/admin">admin page</a>.
           </p>
         </SignedIn>
+        <form action={signOutEverywhere}>
+          <button type="submit">Sign out</button> — clears this app&apos;s
+          session <em>and</em> ends the JumpCloud one, so the next sign-in
+          actually prompts.
+        </form>
         <p>
-          <a href="/api/auth/signout">Sign out</a> — this also ends your
-          JumpCloud session.
+          <small>
+            Auth.js&apos;s own <code>/api/auth/signout</code> only clears the
+            local cookie. The JumpCloud session would survive it, and the next
+            &ldquo;Sign in&rdquo; click would silently put you straight back in
+            — which on a shared machine hands your account to the next person at
+            the keyboard.
+          </small>
         </p>
       </SignedIn>
       <SignedOut>
