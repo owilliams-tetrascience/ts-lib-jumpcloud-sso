@@ -181,6 +181,32 @@ describe('createJumpCloudAuth callback composition', () => {
   });
 });
 
+describe('createJumpCloudAuth session strategy', () => {
+  it('uses the JWT strategy', () => {
+    createJumpCloudAuth(validOptions);
+    expect(lastConfig().session?.strategy).toBe('jwt');
+  });
+
+  it('keeps the JWT strategy when authConfig overrides other session options', () => {
+    // The override spread used to land after `session`, so any `session` block
+    // passed through authConfig replaced the pinned strategy wholesale.
+    createJumpCloudAuth({
+      ...validOptions,
+      authConfig: { session: { maxAge: 60 } },
+    });
+    expect(lastConfig().session).toEqual({ strategy: 'jwt', maxAge: 60 });
+  });
+
+  it('throws on a database strategy rather than ignoring it', () => {
+    expect(() =>
+      createJumpCloudAuth({
+        ...validOptions,
+        authConfig: { session: { strategy: 'database' } },
+      }),
+    ).toThrowError(/Unsupported session strategy "database"/);
+  });
+});
+
 describe('createJumpCloudAuth AUTH_SECRET validation', () => {
   it('throws when AUTH_SECRET is missing', () => {
     vi.stubEnv('AUTH_SECRET', '');

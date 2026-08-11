@@ -40,6 +40,11 @@ export interface JumpCloudAuthOptions extends JumpCloudCommon {
    * on. So a `jwt` callback here cannot accidentally switch off group gating,
    * and you never need to re-implement `applyGroupsToToken` yourself. Every
    * other callback replaces its default outright.
+   *
+   * `session.strategy` is pinned to `'jwt'` and cannot be overridden — the
+   * package ships no adapter and reads groups off the token. Passing anything
+   * else throws; the remaining session options (`maxAge`, `updateAge`) apply
+   * normally.
    */
   authConfig?: Partial<NextAuthConfig>;
 }

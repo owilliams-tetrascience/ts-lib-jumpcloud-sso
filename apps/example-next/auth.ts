@@ -29,9 +29,10 @@ export const { handlers, auth, signIn, signOut, routeGroups } =
     // a scope — JumpCloud emits them as an ID-token attribute (below).
     scopes: ['openid', 'email', 'profile'],
     // Our JumpCloud app emits groups in `groups`, not the package default of
-    // `memberOf` — see ./groups. Deployments need no extra env var; set
-    // JUMPCLOUD_GROUPS_CLAIM only to point at a differently configured app.
-    groupsClaim: process.env.JUMPCLOUD_GROUPS_CLAIM ?? GROUPS_CLAIM,
+    // `memberOf`. ./groups applies the JUMPCLOUD_GROUPS_CLAIM override, so
+    // deployments need no extra env var and /debug reports the same name this
+    // lookup uses.
+    groupsClaim: GROUPS_CLAIM,
     // Gate /admin (and everything under it) to the admin group from
     // ./groups. Group NAMES, not IDs.
     routeGroups: {
