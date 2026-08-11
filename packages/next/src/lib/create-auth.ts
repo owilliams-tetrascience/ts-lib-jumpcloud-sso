@@ -61,6 +61,32 @@ function assertAuthSecret(authConfig: Partial<NextAuthConfig> | undefined) {
  * echoed back so it can be handed to `createAuthMiddleware` without repeating
  * yourself.
  */
+/**
+ * Rejects a session strategy this package cannot support.
+ *
+ * Pinning `strategy: 'jwt'` silently would leave a caller who asked for
+ * database sessions with a config that ignores them; throwing says so. The
+ * package has no adapter and reads groups off the JWT, so `database` would
+ * hand the `session` callback an undefined `token` and resolve every user to
+ * zero groups — gating that denies everyone.
+ */
+function assertJwtStrategy(strategy: string | undefined): void {
+  if (strategy !== undefined && strategy !== 'jwt') {
+    throw new Error(
+      `[jumpcloud-sso] Unsupported session strategy "${strategy}". This ` +
+        'package requires the JWT strategy: it ships no Auth.js adapter and ' +
+        'reads JumpCloud groups off the token, so a database session would ' +
+        'resolve every user to zero groups and deny every gated route. Other ' +
+        '`session` options (maxAge, updateAge) are respected.',
+    );
+  }
+}
+
+/** The argument Auth.js hands the `session` callback. */
+type SessionCallbackParams = Parameters<
+  NonNullable<NonNullable<NextAuthConfig['callbacks']>['session']>
+>[0];
+
 export interface JumpCloudAuth extends NextAuthResult {
   /** The `routeGroups` passed to the factory (empty object when omitted). */
   routeGroups: RouteGroups;
@@ -136,20 +162,53 @@ export function createJumpCloudAuth(
 
   const { callbacks: extraCallbacks, ...configOverrides } =
     options.authConfig ?? {};
+  const { session: sessionOverrides, ...otherOverrides } = configOverrides;
+  const {
+    jwt: extraJwt,
+    session: extraSession,
+    ...otherCallbacks
+  } = extraCallbacks ?? {};
+
+  assertJwtStrategy(sessionOverrides?.strategy);
 
   const config: NextAuthConfig = {
     providers: [provider],
-    session: { strategy: 'jwt' },
     callbacks: {
-      jwt({ token, profile }) {
-        return applyGroupsToToken(token, profile, resolved.groupsClaim);
+      // `jwt` and `session` are COMPOSED, not replaced: the groups handling
+      // always runs, then a caller-supplied callback receives the result to
+      // build on. Shallow-merging these instead would silently disable every
+      // group-gating feature in the package the moment a caller added an
+      // unrelated `jwt` callback — a footgun that costs an afternoon, because
+      // gating keeps "working" and just denies everyone.
+      jwt(params) {
+        const token = applyGroupsToToken(
+          params.token,
+          params.profile,
+          resolved.groupsClaim,
+        );
+        return extraJwt === undefined ? token : extraJwt({ ...params, token });
       },
-      session({ session, token }) {
-        return applyGroupsToSession(session, token);
+      session(params) {
+        const session = applyGroupsToSession(params.session, params.token);
+        // Auth.js types these params as a union over session strategies, and
+        // the adapter arm demands a non-optional `user`. This config pins
+        // `strategy: 'jwt'`, so only the JWT arm is ever constructed — the
+        // cast re-narrows what the spread widened.
+        return extraSession === undefined
+          ? session
+          : extraSession({ ...params, session } as SessionCallbackParams);
       },
-      ...extraCallbacks,
+      // Every other callback (signIn, redirect, authorized, ...) has no
+      // package behavior to preserve, so it passes straight through.
+      ...otherCallbacks,
     },
-    ...configOverrides,
+    ...otherOverrides,
+    // Pinned last so `strategy` survives the override spread, while the rest
+    // of the session options (maxAge, updateAge, generateSessionToken) still
+    // pass through. The whole package reads groups off the JWT and ships no
+    // adapter, so a database strategy would leave `token` undefined and every
+    // user in no groups.
+    session: { ...sessionOverrides, strategy: 'jwt' },
   };
 
   return { ...NextAuth(config), routeGroups };

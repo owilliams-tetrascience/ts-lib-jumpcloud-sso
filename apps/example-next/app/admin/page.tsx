@@ -1,7 +1,8 @@
+import { ADMIN_GROUP, ADMIN_GROUPS } from '../../groups';
 import { requireSession } from '../../session';
 
 /**
- * Group-gated page: only members of the JumpCloud group "app-admins".
+ * Group-gated page: only members of the admin group defined in ../../groups.
  *
  * The middleware already answers 403 for non-members, but the page re-checks
  * server-side anyway — middleware is a convenience, not a security boundary.
@@ -11,7 +12,7 @@ import { requireSession } from '../../session';
  */
 export default async function AdminPage() {
   const session = await requireSession({
-    groups: ['app-admins'],
+    groups: ADMIN_GROUPS,
     callbackUrl: '/admin',
   });
 
@@ -20,7 +21,7 @@ export default async function AdminPage() {
       <h1>Admin</h1>
       <p>
         Welcome, <strong>{session.user?.email}</strong> — you are in{' '}
-        <code>app-admins</code>.
+        <code>{ADMIN_GROUP}</code>.
       </p>
       <p>Imagine dangerous buttons here.</p>
     </main>

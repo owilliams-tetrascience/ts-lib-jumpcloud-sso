@@ -27,8 +27,37 @@ export function applyGroupsToToken(
   if (profile === undefined) {
     return token;
   }
-  const raw = (profile as Record<string, unknown>)[groupsClaim];
+  const claims = profile as Record<string, unknown>;
+  const raw = claims[groupsClaim];
+  if (raw === undefined) {
+    warnMissingGroupsClaim(groupsClaim, claims);
+  }
   return { ...token, groups: normalizeGroups(raw) };
+}
+
+/**
+ * Explains an absent groups claim at the moment of sign-in.
+ *
+ * Without this, a JumpCloud app that isn't emitting groups looks exactly like
+ * a user who is in no groups: every gated route 403s and nothing says why.
+ * Logs the claim names present in the ID token — names only, never values, so
+ * no user attributes land in the logs.
+ */
+function warnMissingGroupsClaim(
+  groupsClaim: string,
+  claims: Record<string, unknown>,
+): void {
+  console.warn(
+    `[jumpcloud-sso] The ID token has no "${groupsClaim}" claim, so this ` +
+      'user is treated as belonging to no groups and every group-gated route ' +
+      `will answer 403. Claims actually present: ${Object.keys(claims).join(', ')}. ` +
+      'Either the JumpCloud OIDC app is not emitting the group attribute ' +
+      '(Admin Console → SSO Applications → your app → Attributes → "Include ' +
+      'group attribute in ID token", and note that JumpCloud only emits ' +
+      'groups that are assigned to that application), or the attribute is ' +
+      `emitted under a different name than "${groupsClaim}" — set ` +
+      'JUMPCLOUD_GROUPS_CLAIM (or the `groupsClaim` option) to match.',
+  );
 }
 
 /**

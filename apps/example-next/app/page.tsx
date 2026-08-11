@@ -1,3 +1,4 @@
+import { ADMIN_GROUPS } from '../groups';
 import { getSessionUser, SignedIn, SignedOut } from '../session';
 
 /**
@@ -23,7 +24,7 @@ export default async function HomePage() {
           ) : null}
         </p>
         <SignedIn
-          groups={['app-admins']}
+          groups={ADMIN_GROUPS}
           fallback={<p>The admin panel is hidden — you are not an admin.</p>}
         >
           <p>
