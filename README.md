@@ -378,6 +378,14 @@ different account." So `createJumpCloudAuth` sets `checks: ['pkce', 'state']`
 explicitly. Don't remove it, and don't override `checks` through `authConfig`
 without keeping `state`.
 
+**Your `jwt` / `session` callbacks compose, they don't replace.** A callback
+passed through `authConfig.callbacks` receives a `token` / `session` that
+already carries `groups`, and whatever it returns is what Auth.js uses — so
+you never re-implement the groups handling, and adding an unrelated `jwt`
+callback cannot switch gating off. (It used to: these were shallow-merged, so
+a caller callback replaced the built-in and every gated route then denied
+everyone, members included.) Every other callback still replaces its default.
+
 **Route gating uses group NAMES, not IDs.** `routeGroups: { '/admin':
 ['app-admins'] }` matches the literal string JumpCloud puts in the claim. If
 someone renames the group in JumpCloud, gating silently breaks (nobody gets

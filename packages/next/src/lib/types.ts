@@ -32,9 +32,14 @@ export interface JumpCloudAuthOptions extends JumpCloudCommon {
   routeGroups?: RouteGroups;
   /**
    * Escape hatch: additional Auth.js configuration shallow-merged over the
-   * generated config. `callbacks` you provide here are merged alongside (and
-   * may override) the built-in `jwt`/`session` callbacks — override those two
-   * only if you re-implement the groups handling yourself.
+   * generated config.
+   *
+   * `callbacks.jwt` and `callbacks.session` are **composed** with the
+   * built-ins rather than replacing them: the groups handling runs first, and
+   * your callback receives the already-populated `token` / `session` to build
+   * on. So a `jwt` callback here cannot accidentally switch off group gating,
+   * and you never need to re-implement `applyGroupsToToken` yourself. Every
+   * other callback replaces its default outright.
    */
   authConfig?: Partial<NextAuthConfig>;
 }

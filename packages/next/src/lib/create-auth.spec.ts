@@ -91,6 +91,96 @@ describe('createJumpCloudAuth provider config', () => {
   });
 });
 
+describe('createJumpCloudAuth callback composition', () => {
+  /** Invokes the assembled `jwt` callback as Auth.js would on sign-in. */
+  async function runJwt(profile: Record<string, unknown> | undefined) {
+    const jwt = lastConfig().callbacks?.jwt;
+    return (await jwt?.({
+      token: { sub: 'user-1' },
+      profile,
+    } as never)) as Record<string, unknown>;
+  }
+
+  /** Invokes the assembled `session` callback as Auth.js would on a read. */
+  async function runSession(token: Record<string, unknown>) {
+    const session = lastConfig().callbacks?.session;
+    return (await session?.({
+      session: { user: { email: 'ada@tetrascience.com' }, expires: 'never' },
+      token,
+    } as never)) as Record<string, unknown>;
+  }
+
+  it('copies groups onto the token with no caller callbacks', async () => {
+    createJumpCloudAuth(validOptions);
+    expect(await runJwt({ memberOf: 'app-admins' })).toMatchObject({
+      groups: ['app-admins'],
+    });
+  });
+
+  it('still copies groups when the caller supplies its own jwt callback', async () => {
+    // REGRESSION: these callbacks used to be shallow-merged over the
+    // built-ins, so any caller `jwt` callback silently replaced the groups
+    // handling — gating then denied every user, including real members.
+    createJumpCloudAuth({
+      ...validOptions,
+      authConfig: {
+        callbacks: {
+          jwt({ token }) {
+            return { ...token, extra: 'from-caller' };
+          },
+        },
+      },
+    });
+    expect(await runJwt({ memberOf: ['app-admins', 'eng'] })).toMatchObject({
+      groups: ['app-admins', 'eng'],
+      extra: 'from-caller',
+    });
+  });
+
+  it('hands the caller a token that already has groups on it', async () => {
+    let seen: unknown;
+    createJumpCloudAuth({
+      ...validOptions,
+      authConfig: {
+        callbacks: {
+          jwt({ token }) {
+            seen = token['groups'];
+            return token;
+          },
+        },
+      },
+    });
+    await runJwt({ memberOf: 'app-admins' });
+    expect(seen).toEqual(['app-admins']);
+  });
+
+  it('composes the session callback the same way', async () => {
+    createJumpCloudAuth({
+      ...validOptions,
+      authConfig: {
+        callbacks: {
+          session({ session }) {
+            return { ...session, tag: 'from-caller' } as never;
+          },
+        },
+      },
+    });
+    expect(await runSession({ groups: ['app-admins'] })).toMatchObject({
+      user: { email: 'ada@tetrascience.com', groups: ['app-admins'] },
+      tag: 'from-caller',
+    });
+  });
+
+  it('passes other callbacks through untouched', () => {
+    const signIn = vi.fn(() => true);
+    createJumpCloudAuth({
+      ...validOptions,
+      authConfig: { callbacks: { signIn } },
+    });
+    expect(lastConfig().callbacks?.signIn).toBe(signIn);
+  });
+});
+
 describe('createJumpCloudAuth AUTH_SECRET validation', () => {
   it('throws when AUTH_SECRET is missing', () => {
     vi.stubEnv('AUTH_SECRET', '');

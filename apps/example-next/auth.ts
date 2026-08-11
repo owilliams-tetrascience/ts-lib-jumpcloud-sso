@@ -1,13 +1,6 @@
-import {
-  applyGroupsToSession,
-  applyGroupsToToken,
-  createJumpCloudAuth,
-} from '@tetrascience-npm/jumpcloud-sso/next';
+import { createJumpCloudAuth } from '@tetrascience-npm/jumpcloud-sso/next';
 
 import { ADMIN_GROUPS, GROUPS_CLAIM } from './groups';
-
-/** The ID-token claim carrying groups, per ./groups (env-overridable). */
-const groupsClaim = process.env.JUMPCLOUD_GROUPS_CLAIM ?? GROUPS_CLAIM;
 
 /**
  * Whether to keep the raw ID-token claims on the session for /debug.
@@ -38,30 +31,28 @@ export const { handlers, auth, signIn, signOut, routeGroups } =
     // Our JumpCloud app emits groups in `group`, not the package default of
     // `memberOf` — see ./groups. Deployments need no extra env var; set
     // JUMPCLOUD_GROUPS_CLAIM only to point at a differently configured app.
-    groupsClaim,
+    groupsClaim: process.env.JUMPCLOUD_GROUPS_CLAIM ?? GROUPS_CLAIM,
     // Gate /admin (and everything under it) to the admin group from
     // ./groups. Group NAMES, not IDs.
     routeGroups: {
       '/admin': ADMIN_GROUPS,
     },
     authConfig: {
+      // These two compose with the package's own callbacks rather than
+      // replacing them: `token` and `session` arrive with groups already
+      // populated, so this only has to add the /debug extras.
       callbacks: {
-        // NOTE: callbacks passed here REPLACE the package's own, so both of
-        // these must re-apply the group copying themselves — dropping the
-        // applyGroupsTo* calls would silently disable all group gating.
         jwt({ token, profile }) {
-          const withGroups = applyGroupsToToken(token, profile, groupsClaim);
           if (debugClaims && profile !== undefined) {
-            return { ...withGroups, idTokenClaims: profile };
+            return { ...token, idTokenClaims: profile };
           }
-          return withGroups;
+          return token;
         },
         session({ session, token }) {
-          const withGroups = applyGroupsToSession(session, token);
           if (debugClaims) {
-            return { ...withGroups, idTokenClaims: token['idTokenClaims'] };
+            return { ...session, idTokenClaims: token['idTokenClaims'] };
           }
-          return withGroups;
+          return session;
         },
       },
     },

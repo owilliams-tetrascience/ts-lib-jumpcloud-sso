@@ -61,6 +61,11 @@ function assertAuthSecret(authConfig: Partial<NextAuthConfig> | undefined) {
  * echoed back so it can be handed to `createAuthMiddleware` without repeating
  * yourself.
  */
+/** The argument Auth.js hands the `session` callback. */
+type SessionCallbackParams = Parameters<
+  NonNullable<NonNullable<NextAuthConfig['callbacks']>['session']>
+>[0];
+
 export interface JumpCloudAuth extends NextAuthResult {
   /** The `routeGroups` passed to the factory (empty object when omitted). */
   routeGroups: RouteGroups;
@@ -136,18 +141,43 @@ export function createJumpCloudAuth(
 
   const { callbacks: extraCallbacks, ...configOverrides } =
     options.authConfig ?? {};
+  const {
+    jwt: extraJwt,
+    session: extraSession,
+    ...otherCallbacks
+  } = extraCallbacks ?? {};
 
   const config: NextAuthConfig = {
     providers: [provider],
     session: { strategy: 'jwt' },
     callbacks: {
-      jwt({ token, profile }) {
-        return applyGroupsToToken(token, profile, resolved.groupsClaim);
+      // `jwt` and `session` are COMPOSED, not replaced: the groups handling
+      // always runs, then a caller-supplied callback receives the result to
+      // build on. Shallow-merging these instead would silently disable every
+      // group-gating feature in the package the moment a caller added an
+      // unrelated `jwt` callback — a footgun that costs an afternoon, because
+      // gating keeps "working" and just denies everyone.
+      jwt(params) {
+        const token = applyGroupsToToken(
+          params.token,
+          params.profile,
+          resolved.groupsClaim,
+        );
+        return extraJwt === undefined ? token : extraJwt({ ...params, token });
       },
-      session({ session, token }) {
-        return applyGroupsToSession(session, token);
+      session(params) {
+        const session = applyGroupsToSession(params.session, params.token);
+        // Auth.js types these params as a union over session strategies, and
+        // the adapter arm demands a non-optional `user`. This config pins
+        // `strategy: 'jwt'`, so only the JWT arm is ever constructed — the
+        // cast re-narrows what the spread widened.
+        return extraSession === undefined
+          ? session
+          : extraSession({ ...params, session } as SessionCallbackParams);
       },
-      ...extraCallbacks,
+      // Every other callback (signIn, redirect, authorized, ...) has no
+      // package behavior to preserve, so it passes straight through.
+      ...otherCallbacks,
     },
     ...configOverrides,
   };
