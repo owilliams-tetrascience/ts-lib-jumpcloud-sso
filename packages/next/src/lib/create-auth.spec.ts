@@ -207,10 +207,127 @@ describe('createJumpCloudAuth session strategy', () => {
   });
 });
 
+describe('createJumpCloudAuth session lifetime', () => {
+  it('caps the session well below the Auth.js 30-day default', () => {
+    // With a JWT session this number IS the deprovisioning lag: groups are
+    // read from the ID token once at sign-in and never re-read, so someone
+    // removed from a JumpCloud group keeps passing every gate until their
+    // session expires. 30 days of that is not an acceptable default for an
+    // authorization package.
+    createJumpCloudAuth(validOptions);
+    expect(lastConfig().session?.maxAge).toBe(8 * 60 * 60);
+  });
+
+  it('lets a caller choose their own maxAge', () => {
+    createJumpCloudAuth({
+      ...validOptions,
+      authConfig: { session: { maxAge: 900 } },
+    });
+    expect(lastConfig().session).toEqual({ strategy: 'jwt', maxAge: 900 });
+  });
+});
+
+describe('createJumpCloudAuth checks', () => {
+  it('rejects a checks override that drops state', () => {
+    // JumpCloud refuses any authorization request without `state`, so this
+    // would break every login — and dropping pkce would unbind the code from
+    // this client. Neither is a preference.
+    expect(() =>
+      createJumpCloudAuth({ ...validOptions, checks: ['pkce'] }),
+    ).toThrowError(/missing state/);
+  });
+
+  it('rejects a checks override that drops pkce', () => {
+    expect(() =>
+      createJumpCloudAuth({ ...validOptions, checks: ['state'] }),
+    ).toThrowError(/missing pkce/);
+  });
+
+  it('allows adding nonce alongside the mandatory two', () => {
+    createJumpCloudAuth({
+      ...validOptions,
+      checks: ['pkce', 'state', 'nonce'],
+    });
+    expect(lastProvider().checks).toEqual(['pkce', 'state', 'nonce']);
+  });
+});
+
+describe('createJumpCloudAuth routeGroups validation', () => {
+  it('throws on an empty allow-list rather than opening the route', () => {
+    // `{'/admin': []}` reads like a gate and admits every signed-in user.
+    expect(() =>
+      createJumpCloudAuth({ ...validOptions, routeGroups: { '/admin': [] } }),
+    ).toThrowError(/routeGroups\["\/admin"\].*empty group list/s);
+  });
+});
+
+describe('createJumpCloudAuth ID token retention for logout', () => {
+  /** Invokes the assembled `jwt` callback as Auth.js would on sign-in. */
+  async function runJwt(account: Record<string, unknown> | null) {
+    const jwt = lastConfig().callbacks?.jwt;
+    return (await jwt?.({
+      token: { sub: 'user-1' },
+      profile: { memberOf: 'app-admins' },
+      account,
+    } as never)) as Record<string, unknown>;
+  }
+
+  it('keeps the raw ID token so logout can send id_token_hint', async () => {
+    createJumpCloudAuth(validOptions);
+    expect(await runJwt({ id_token: 'header.payload.sig' })).toMatchObject({
+      jumpcloudIdToken: 'header.payload.sig',
+    });
+  });
+
+  it('omits it when idpLogout is switched off', async () => {
+    createJumpCloudAuth({ ...validOptions, idpLogout: false });
+    expect(await runJwt({ id_token: 'header.payload.sig' })).not.toHaveProperty(
+      'jumpcloudIdToken',
+    );
+  });
+
+  it('leaves the token alone when there is no account (not a sign-in)', async () => {
+    createJumpCloudAuth(validOptions);
+    expect(await runJwt(null)).not.toHaveProperty('jumpcloudIdToken');
+  });
+});
+
 describe('createJumpCloudAuth AUTH_SECRET validation', () => {
   it('throws when AUTH_SECRET is missing', () => {
     vi.stubEnv('AUTH_SECRET', '');
     expect(() => createJumpCloudAuth(validOptions)).toThrowError(/AUTH_SECRET/);
+  });
+
+  it('throws on a secret short enough to attack offline', () => {
+    // Auth.js enforces no minimum — it runs whatever it is given through
+    // HKDF, which stretches a weak secret without adding entropy. Forge this
+    // JWT and `session.user.groups` is whatever the attacker wrote.
+    vi.stubEnv('AUTH_SECRET', 'hunter22');
+    expect(() => createJumpCloudAuth(validOptions)).toThrowError(
+      /at least 32 are required/,
+    );
+  });
+
+  it('throws on a padded-out placeholder', () => {
+    vi.stubEnv('AUTH_SECRET', 'changeme-changeme-changeme-changeme');
+    expect(() => createJumpCloudAuth(validOptions)).toThrowError(/placeholder/);
+  });
+
+  it('validates every rotation slot, not just the first', () => {
+    // Any AUTH_SECRET_n can decrypt a session cookie, so one weak slot is as
+    // bad as a weak AUTH_SECRET.
+    vi.stubEnv('AUTH_SECRET', 'a-long-random-auth-secret-string-1234567890');
+    vi.stubEnv('AUTH_SECRET_2', 'short');
+    expect(() => createJumpCloudAuth(validOptions)).toThrowError(
+      /AUTH_SECRET_2/,
+    );
+  });
+
+  it('validates a secret passed through authConfig', () => {
+    vi.stubEnv('AUTH_SECRET', '');
+    expect(() =>
+      createJumpCloudAuth({ ...validOptions, authConfig: { secret: 'short' } }),
+    ).toThrowError(/authConfig\.secret/);
   });
 
   it('accepts a numbered AUTH_SECRET_n for secret rotation', () => {

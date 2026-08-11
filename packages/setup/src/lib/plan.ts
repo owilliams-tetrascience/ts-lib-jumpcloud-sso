@@ -54,16 +54,42 @@ const INSTALL: Record<PackageManager, string> = {
  * in lockstep with `peerDependencies` in packages/jumpcloud-sso/package.json
  * — a floating tag like `next-auth@beta` could drift outside the supported
  * range.
+ *
+ * The `next` floor is a security floor, not a compatibility one:
+ * CVE-2025-29927 (CVSS 9.1) lets any request skip middleware entirely via the
+ * `x-middleware-subrequest` header, which turns `createAuthMiddleware` into a
+ * no-op. Fixed in 14.2.25, 15.2.3, and 16.x. The scaffold installs middleware
+ * as a first-class protection, so it must not install it onto a runtime where
+ * it can be bypassed.
  */
 export function dependenciesFor(type: ProjectType): string[] {
   return type === 'next'
-    ? ['@tetrascience-npm/jumpcloud-sso', 'next-auth@^5.0.0-beta.32']
+    ? [
+        '@tetrascience-npm/jumpcloud-sso',
+        'next-auth@^5.0.0-beta.32',
+        'next@^14.2.25 || ^15.2.3 || ^16',
+      ]
     : ['@tetrascience-npm/jumpcloud-sso', 'express-openid-connect@^2'];
+}
+
+/**
+ * Single-quotes a dependency spec that the shell would otherwise mangle.
+ *
+ * The `next` spec contains `||`, which a shell reads as "or else": pasting
+ * `npm install next@^14.2.25 || ^15.2.3` installs only the first range and
+ * then tries to RUN `^15.2.3` — and because npm exits 0, the failure is
+ * invisible. The scaffold's whole point is a version where middleware cannot
+ * be bypassed, so this cannot be left to chance.
+ */
+function shellQuote(spec: string): string {
+  return /[|<>()\s]/.test(spec) ? `'${spec}'` : spec;
 }
 
 /** Builds the complete scaffolding plan. Pure — safe to unit test. */
 export function buildPlan(type: ProjectType, shape: ProjectShape): SetupPlan {
-  const install = `${INSTALL[shape.packageManager]} ${dependenciesFor(type).join(' ')}`;
+  const install = `${INSTALL[shape.packageManager]} ${dependenciesFor(type)
+    .map(shellQuote)
+    .join(' ')}`;
 
   if (type === 'next') {
     // With a `src` directory, ALL of these live under src/ (Next.js reads

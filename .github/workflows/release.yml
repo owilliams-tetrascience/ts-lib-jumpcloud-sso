@@ -31,9 +31,17 @@ jobs:
   release:
     runs-on: ubuntu-latest
     # Only release when CI actually succeeded (or when triggered manually).
+    #
+    # The head_repository check matters: `workflow_run`'s `branches:` filter
+    # matches the HEAD branch of the triggering run, and fork PRs are commonly
+    # pushed from a branch literally named `main` — so a green CI run on an
+    # outside contributor's PR would otherwise start a release. Nothing from
+    # the fork is ever executed (the checkout below pins `ref: main` on this
+    # repo), but an outsider should not be able to time our publishes.
     if: >-
       github.event_name == 'workflow_dispatch' ||
-      github.event.workflow_run.conclusion == 'success'
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
     steps:
       - uses: actions/checkout@v4
         with:

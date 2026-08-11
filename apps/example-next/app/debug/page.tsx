@@ -53,9 +53,8 @@ export default async function DebugPage() {
           token carried <code>{GROUPS_CLAIM}</code>, but no groups reached the
           session. Groups are copied onto the JWT <em>only at sign-in</em>, so a
           cookie minted before the current code (or before you were added to the
-          group) keeps its old, empty list forever.{' '}
-          <a href="/api/auth/signout">Sign out</a>, then sign back in and reload
-          this page.
+          group) keeps its old, empty list forever. Sign out from the home page,
+          then sign back in and reload this page.
         </p>
       ) : null}
 

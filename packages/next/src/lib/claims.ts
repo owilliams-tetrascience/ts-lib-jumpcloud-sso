@@ -1,6 +1,12 @@
 import { normalizeGroups } from '@tetrascience-npm/jumpcloud-sso/core';
-import type { Profile, Session } from 'next-auth';
+import type { Account, Profile, Session } from 'next-auth';
 import type { JWT } from 'next-auth/jwt';
+
+/**
+ * The JWT field the raw ID token is stashed under, for later use as
+ * `id_token_hint` on the JumpCloud logout URL.
+ */
+export const ID_TOKEN_FIELD = 'jumpcloudIdToken';
 
 /**
  * Pure `jwt`-callback logic: copies the (normalized) JumpCloud groups claim
@@ -58,6 +64,43 @@ function warnMissingGroupsClaim(
       `emitted under a different name than "${groupsClaim}" — set ` +
       'JUMPCLOUD_GROUPS_CLAIM (or the `groupsClaim` option) to match.',
   );
+}
+
+/**
+ * Pure `jwt`-callback logic: keeps the raw ID token on the Auth.js token so
+ * sign-out can present it to JumpCloud as `id_token_hint`.
+ *
+ * Without a hint, JumpCloud cannot tell which session is being ended and shows
+ * an interstitial instead of just ending it — so a "sign out everywhere" link
+ * becomes a two-step flow users abandon halfway, leaving the IdP session
+ * alive. The token adds roughly 1KB to the session cookie, which Auth.js
+ * chunks transparently, so this is opt-out rather than opt-in.
+ *
+ * `account` is only present on the initial sign-in; later invocations keep
+ * whatever was already stored.
+ *
+ * @param token - The Auth.js JWT being built or refreshed.
+ * @param account - The OAuth account, if this is a sign-in.
+ * @returns The token, with the ID token attached on sign-in.
+ */
+export function applyIdTokenToToken(
+  token: JWT,
+  account: Account | null | undefined,
+): JWT {
+  const idToken = account?.id_token;
+  if (typeof idToken !== 'string') {
+    return token;
+  }
+  return { ...token, [ID_TOKEN_FIELD]: idToken };
+}
+
+/**
+ * Reads back what {@link applyIdTokenToToken} stored, or `undefined` when ID
+ * token retention is switched off (or the session predates it).
+ */
+export function idTokenFromToken(token: JWT): string | undefined {
+  const value = token[ID_TOKEN_FIELD];
+  return typeof value === 'string' ? value : undefined;
 }
 
 /**

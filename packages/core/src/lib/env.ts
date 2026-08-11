@@ -5,6 +5,20 @@ import {
 } from './config.js';
 
 /**
+ * The value `next build` sets in `NEXT_PHASE`.
+ * @see next/dist/build/index.js, which assigns `PHASE_PRODUCTION_BUILD`
+ */
+const NEXT_BUILD_PHASE = 'phase-production-build';
+
+/**
+ * Stand-in credentials used only when `next build` runs without secrets.
+ *
+ * Deliberately self-describing: if one of these ever reaches a token request,
+ * JumpCloud's error names the actual problem instead of "invalid client".
+ */
+const BUILD_PHASE_PLACEHOLDER = 'jumpcloud-sso-unset-at-build-time';
+
+/**
  * The TetraScience environment variable convention for JumpCloud SSO.
  * Every app using this package reads the same variable names.
  */
@@ -50,6 +64,31 @@ export function resolveEnv(
     if (!clientSecret) {
       missing.push(JUMPCLOUD_ENV_VARS.clientSecret);
     }
+
+    // `next build` legitimately runs without runtime secrets — CI builds the
+    // app long before it has credentials. Warning instead of throwing here is
+    // what lets an app call `resolveEnv()` directly in `auth.ts` rather than
+    // writing `?? 'placeholder-client-id'` fallbacks, which is the pattern
+    // this exception exists to make unnecessary: a fallback survives into
+    // production and defers the failure to the first user's sign-in, whereas
+    // these values only ever reach a build that signs nobody in.
+    //
+    // Mirrors the AUTH_SECRET handling in `createJumpCloudAuth`.
+    if (env['NEXT_PHASE'] === NEXT_BUILD_PHASE) {
+      console.warn(
+        `[jumpcloud-sso] ${missing.join(' and ')} not set during \`next build\`. ` +
+          'The build will succeed, but sign-in will fail at runtime unless ' +
+          'these are set in the deployment environment.',
+      );
+      return {
+        clientId: clientId || BUILD_PHASE_PLACEHOLDER,
+        clientSecret: clientSecret || BUILD_PHASE_PLACEHOLDER,
+        issuer: env[JUMPCLOUD_ENV_VARS.issuer] || DEFAULT_ISSUER,
+        groupsClaim:
+          env[JUMPCLOUD_ENV_VARS.groupsClaim] || DEFAULT_GROUPS_CLAIM,
+      };
+    }
+
     throw new Error(
       `[jumpcloud-sso] Missing required environment variable(s): ${missing.join(', ')}. ` +
         'Copy .env.example to your environment and fill in the values from ' +

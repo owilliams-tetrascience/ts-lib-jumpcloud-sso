@@ -11,7 +11,14 @@ export { createJumpCloudAuth } from './lib/create-auth.js';
 export type { JumpCloudAuth } from './lib/create-auth.js';
 export { createAuthMiddleware } from './lib/middleware.js';
 export type { AuthMiddlewareOptions } from './lib/middleware.js';
-export { applyGroupsToSession, applyGroupsToToken } from './lib/claims.js';
+export {
+  applyGroupsToSession,
+  applyGroupsToToken,
+  applyIdTokenToToken,
+  idTokenFromToken,
+} from './lib/claims.js';
+export { createSignOutTools } from './lib/logout.js';
+export type { SignOutTools, SignOutToolsOptions } from './lib/logout.js';
 export {
   ALWAYS_PUBLIC_PATHS,
   decideAccess,

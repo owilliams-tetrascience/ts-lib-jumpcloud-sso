@@ -52,3 +52,38 @@ export function hasAnyGroup(userGroups: string[], allowed: string[]): boolean {
   const allowedSet = new Set(allowed);
   return userGroups.some((group) => allowedSet.has(group));
 }
+
+/**
+ * Rejects an empty allow-list at the point where a caller asked for group
+ * gating.
+ *
+ * {@link hasAnyGroup} treats `[]` as "no gating configured" and returns
+ * `true`, which is the right answer for a pure predicate but the wrong
+ * direction to fail when the list arrived from configuration. A mistyped env
+ * var, a lookup that missed, or a `routeGroups` entry left as `[]` would
+ * otherwise open the route to every signed-in user while still *looking*
+ * gated at the call site.
+ *
+ * So the guards call this first: passing `groups`/`allowed` explicitly is a
+ * statement that the route is gated, and an empty list cannot satisfy that.
+ * "Any signed-in user" already has its own spelling — `requireAuth`,
+ * or `requireSession()` with no `groups` at all.
+ *
+ * @param allowed - The group list exactly as the caller supplied it.
+ * @param context - What is being gated, for the error message.
+ * @throws Error when `allowed` is present but empty.
+ */
+export function assertGatedGroups(
+  allowed: string[] | undefined,
+  context: string,
+): void {
+  if (allowed !== undefined && allowed.length === 0) {
+    throw new Error(
+      `[jumpcloud-sso] ${context} was given an empty group list. That would ` +
+        'admit every signed-in user, which is almost never what an explicit ' +
+        'group check means — it usually means a group name or environment ' +
+        'variable did not resolve. Pass at least one JumpCloud group name, ' +
+        'or drop the `groups` argument entirely to allow any signed-in user.',
+    );
+  }
+}

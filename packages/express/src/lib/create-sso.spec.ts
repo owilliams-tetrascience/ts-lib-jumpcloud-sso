@@ -46,6 +46,85 @@ describe('createJumpCloudSSO', () => {
     ).toThrowError(/sessionSecret/);
   });
 
+  describe('sessionSecret strength', () => {
+    // req.oidc.isAuthenticated() is answered entirely from the encrypted
+    // session cookie, with no call back to JumpCloud. Recover this secret and
+    // you can mint a cookie naming any user in any group; requireAuth and
+    // requireGroup both honor it. express-openid-connect's own floor is 8
+    // characters, which is not a floor at all.
+    it('rejects the 8-character secret express-openid-connect would accept', () => {
+      expect(() =>
+        createJumpCloudSSO({ ...validOptions, sessionSecret: 'hunter22' }),
+      ).toThrowError(/at least 32 are required/);
+    });
+
+    it('rejects a padded-out placeholder', () => {
+      expect(() =>
+        createJumpCloudSSO({
+          ...validOptions,
+          sessionSecret: 'changeme-changeme-changeme-changeme',
+        }),
+      ).toThrowError(/placeholder/);
+    });
+
+    it('rejects a long but repetitive value', () => {
+      expect(() =>
+        createJumpCloudSSO({ ...validOptions, sessionSecret: 'a'.repeat(64) }),
+      ).toThrowError(/distinct characters/);
+    });
+
+    it('says it is not the JumpCloud client secret, the classic mix-up', () => {
+      expect(() =>
+        createJumpCloudSSO({ ...validOptions, sessionSecret: 'short' }),
+      ).toThrowError(/not the JumpCloud client secret/);
+    });
+  });
+
+  describe('plain-HTTP baseUrl in production', () => {
+    // express-openid-connect derives the cookie's Secure attribute from the
+    // baseURL scheme, and FORBIDS Secure on a non-https origin. So an http://
+    // production baseUrl guarantees the cookie holding the ID, access, and
+    // refresh tokens travels in cleartext. The loopback check above does not
+    // catch a deliberately-configured internal hostname.
+    it('rejects a non-loopback http:// URL', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      expect(() =>
+        createJumpCloudSSO({
+          ...validOptions,
+          baseUrl: 'http://roadmap.internal.corp',
+        }),
+      ).toThrowError(/plain\s+HTTP/);
+    });
+
+    it('allows it behind an explicit opt-out', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      expect(() =>
+        createJumpCloudSSO({
+          ...validOptions,
+          baseUrl: 'http://roadmap.internal.corp',
+          allowInsecureBaseUrl: true,
+        }),
+      ).not.toThrow();
+    });
+
+    it('allows plain HTTP outside production', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      expect(() =>
+        createJumpCloudSSO({
+          ...validOptions,
+          baseUrl: 'http://roadmap.internal.corp',
+        }),
+      ).not.toThrow();
+    });
+
+    it('still reports the loopback problem first, since it is the likelier cause', () => {
+      vi.stubEnv('NODE_ENV', 'production');
+      expect(() => createJumpCloudSSO(validOptions)).toThrowError(
+        /cannot be reached in production/,
+      );
+    });
+  });
+
   describe('callbackPath', () => {
     it('defaults to /callback', () => {
       const sso = createJumpCloudSSO(validOptions);

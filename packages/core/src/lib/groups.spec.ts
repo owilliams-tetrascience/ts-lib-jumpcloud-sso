@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasAnyGroup, normalizeGroups } from './groups.js';
+import { assertGatedGroups, hasAnyGroup, normalizeGroups } from './groups.js';
 
 describe('normalizeGroups', () => {
   it('returns [] for undefined (user in zero groups — claim omitted)', () => {
@@ -57,5 +57,35 @@ describe('hasAnyGroup', () => {
 
   it('matches exact names only (group names are case-sensitive)', () => {
     expect(hasAnyGroup(['App-Admins'], ['app-admins'])).toBe(false);
+  });
+});
+
+describe('assertGatedGroups', () => {
+  // hasAnyGroup's empty-list-means-allow is correct for a pure predicate but
+  // fails in the wrong direction for a value that arrived from config. The
+  // guards call this first so `requireGroup(process.env.ADMINS?.split(',') ??
+  // [])` is a boot failure rather than an open route that still reads gated.
+  it('throws on an explicitly empty list', () => {
+    expect(() => assertGatedGroups([], 'requireGroup()')).toThrowError(
+      /empty group list/,
+    );
+  });
+
+  it('names the caller so the error points at the misconfiguration', () => {
+    expect(() => assertGatedGroups([], 'routeGroups["/admin"]')).toThrowError(
+      /routeGroups\["\/admin"\]/,
+    );
+  });
+
+  it('allows an omitted list — that is the "any signed-in user" spelling', () => {
+    expect(() =>
+      assertGatedGroups(undefined, 'requireSession()'),
+    ).not.toThrow();
+  });
+
+  it('allows a populated list', () => {
+    expect(() =>
+      assertGatedGroups(['app-admins'], 'requireGroup()'),
+    ).not.toThrow();
   });
 });
