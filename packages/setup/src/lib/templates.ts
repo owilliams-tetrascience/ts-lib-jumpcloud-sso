@@ -11,24 +11,33 @@ const PKG = '@tetrascience-npm/jumpcloud-sso';
 
 /** `auth.ts` — the single place a Next.js app configures SSO. */
 export function nextAuthFile(): string {
-  return `import { createJumpCloudAuth } from '${PKG}/next';
+  return `import { resolveEnv } from '${PKG}/core';
+import { createJumpCloudAuth } from '${PKG}/next';
 
 /**
  * One place to configure SSO for the whole app.
  *
- * The placeholder fallbacks keep \`next build\` working in CI, where no real
- * JumpCloud credentials exist (login itself would fail with placeholders).
- * For local development, put real values in \`.env.local\` — see .env.example.
+ * \`resolveEnv()\` reads JUMPCLOUD_CLIENT_ID / _CLIENT_SECRET / _ISSUER /
+ * _GROUPS_CLAIM and throws at module load if a required one is missing, so a
+ * misconfigured deployment fails immediately with an actionable message
+ * instead of at the first user's sign-in. Do not swap in \`?? 'placeholder'\`
+ * fallbacks to keep a build green — that turns a loud config error into a
+ * silent one that only surfaces in production. Set the variables in CI too
+ * (any non-empty value will do for a build that never signs anyone in).
  */
-export const { handlers, auth, signIn, signOut, routeGroups } =
-  createJumpCloudAuth({
-    clientId: process.env.JUMPCLOUD_CLIENT_ID ?? 'placeholder-client-id',
-    clientSecret:
-      process.env.JUMPCLOUD_CLIENT_SECRET ?? 'placeholder-client-secret',
-    // Path prefix -> JumpCloud group NAMES allowed to access it, e.g.:
-    // routeGroups: { '/admin': ['app-admins'] },
-    routeGroups: {},
-  });
+export const {
+  handlers,
+  auth,
+  signIn,
+  signOut,
+  signOutEverywhere,
+  routeGroups,
+} = createJumpCloudAuth({
+  ...resolveEnv(),
+  // Path prefix -> JumpCloud group NAMES allowed to access it, e.g.:
+  // routeGroups: { '/admin': ['app-admins'] },
+  routeGroups: {},
+});
 `;
 }
 
@@ -140,8 +149,17 @@ JUMPCLOUD_CLIENT_SECRET=
 # Optional overrides (defaults: https://oauth.id.jumpcloud.com/ and memberOf):
 # JUMPCLOUD_ISSUER=
 # JUMPCLOUD_GROUPS_CLAIM=
-# Auth.js cookie/JWT secret — generate with \`npx auth secret\`:
+# Auth.js cookie/JWT secret — generate with \`npx auth secret\`.
+# At least 32 characters; anyone who recovers it can forge a session for any
+# user in any JumpCloud group. Not the JumpCloud client secret.
 AUTH_SECRET=
+
+# Only for self-hosting BEHIND A PROXY THAT STRIPS inbound X-Forwarded-Host.
+# It makes Auth.js derive its own origin from request headers, so a proxy that
+# forwards an attacker's X-Forwarded-Host lets them steer the post-sign-in
+# redirect to their own site. On Vercel, leave it unset. Elsewhere, prefer
+# setting AUTH_URL to your canonical origin instead.
+# AUTH_TRUST_HOST=true
 `;
 }
 
@@ -158,7 +176,9 @@ JUMPCLOUD_CLIENT_SECRET=
 # redirect URI on the JumpCloud OIDC application:
 BASE_URL=http://localhost:3000
 # Session-cookie secret (yours, NOT the JumpCloud client secret) — generate
-# with \`openssl rand -hex 32\`:
+# with \`openssl rand -hex 32\`. At least 32 characters: this cookie holds your
+# OIDC tokens and answers every auth check, so a guessable secret is a full
+# authorization bypass.
 SESSION_SECRET=
 `;
 }

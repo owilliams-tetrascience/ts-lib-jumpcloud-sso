@@ -54,10 +54,21 @@ const INSTALL: Record<PackageManager, string> = {
  * in lockstep with `peerDependencies` in packages/jumpcloud-sso/package.json
  * — a floating tag like `next-auth@beta` could drift outside the supported
  * range.
+ *
+ * The `next` floor is a security floor, not a compatibility one:
+ * CVE-2025-29927 (CVSS 9.1) lets any request skip middleware entirely via the
+ * `x-middleware-subrequest` header, which turns `createAuthMiddleware` into a
+ * no-op. Fixed in 14.2.25, 15.2.3, and 16.x. The scaffold installs middleware
+ * as a first-class protection, so it must not install it onto a runtime where
+ * it can be bypassed.
  */
 export function dependenciesFor(type: ProjectType): string[] {
   return type === 'next'
-    ? ['@tetrascience-npm/jumpcloud-sso', 'next-auth@^5.0.0-beta.32']
+    ? [
+        '@tetrascience-npm/jumpcloud-sso',
+        'next-auth@^5.0.0-beta.32',
+        'next@^14.2.25 || ^15.2.3 || ^16',
+      ]
     : ['@tetrascience-npm/jumpcloud-sso', 'express-openid-connect@^2'];
 }
 
