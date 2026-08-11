@@ -112,7 +112,7 @@ describe('createJumpCloudAuth callback composition', () => {
 
   it('copies groups onto the token with no caller callbacks', async () => {
     createJumpCloudAuth(validOptions);
-    expect(await runJwt({ memberOf: 'app-admins' })).toMatchObject({
+    expect(await runJwt({ groups: 'app-admins' })).toMatchObject({
       groups: ['app-admins'],
     });
   });
@@ -131,7 +131,7 @@ describe('createJumpCloudAuth callback composition', () => {
         },
       },
     });
-    expect(await runJwt({ memberOf: ['app-admins', 'eng'] })).toMatchObject({
+    expect(await runJwt({ groups: ['app-admins', 'eng'] })).toMatchObject({
       groups: ['app-admins', 'eng'],
       extra: 'from-caller',
     });
@@ -150,7 +150,7 @@ describe('createJumpCloudAuth callback composition', () => {
         },
       },
     });
-    await runJwt({ memberOf: 'app-admins' });
+    await runJwt({ groups: 'app-admins' });
     expect(seen).toEqual(['app-admins']);
   });
 

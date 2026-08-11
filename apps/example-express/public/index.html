@@ -43,8 +43,8 @@
     <p>
       <button data-url="/api/me">GET /api/me</button>
       <button data-url="/api/data">GET /api/data (requires sign-in)</button>
-      <button data-url="/api/admin">
-        GET /api/admin (requires app-admins)
+      <button data-url="/api/admin" id="admin">
+        GET /api/admin (admin group only)
       </button>
     </p>
     <pre id="output">Click a button…</pre>
@@ -65,6 +65,15 @@
         }
         return { status: res.status, body };
       }
+
+      // The gated group name lives in src/groups.ts; ask for it rather than
+      // repeating it here, so changing the constant relabels the button.
+      call('/api/config').then(({ body }) => {
+        if (body?.adminGroup) {
+          document.getElementById('admin').textContent =
+            `GET /api/admin (requires ${body.adminGroup})`;
+        }
+      });
 
       // BFF pattern: ask the backend who the user is; no tokens in the browser.
       call('/api/me').then(({ status, body }) => {
