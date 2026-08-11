@@ -38,7 +38,7 @@ export const JUMPCLOUD_ENV_VARS = {
  * | `JUMPCLOUD_CLIENT_ID`     | yes      | —                                  |
  * | `JUMPCLOUD_CLIENT_SECRET` | yes      | —                                  |
  * | `JUMPCLOUD_ISSUER`        | no       | `https://oauth.id.jumpcloud.com/`  |
- * | `JUMPCLOUD_GROUPS_CLAIM`  | no       | `memberOf`                         |
+ * | `JUMPCLOUD_GROUPS_CLAIM`  | no       | `groups`                           |
  *
  * Fails fast: throws a single error listing every missing required variable,
  * so a misconfigured deployment dies at boot with an actionable message

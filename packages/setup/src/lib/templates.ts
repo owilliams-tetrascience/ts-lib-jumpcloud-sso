@@ -146,7 +146,7 @@ export function nextEnvExample(): string {
 # From your JumpCloud OIDC application (JumpCloud Admin Console -> SSO):
 JUMPCLOUD_CLIENT_ID=
 JUMPCLOUD_CLIENT_SECRET=
-# Optional overrides (defaults: https://oauth.id.jumpcloud.com/ and memberOf):
+# Optional overrides (defaults: https://oauth.id.jumpcloud.com/ and groups):
 # JUMPCLOUD_ISSUER=
 # JUMPCLOUD_GROUPS_CLAIM=
 # Auth.js cookie/JWT secret — generate with \`npx auth secret\`.
@@ -169,7 +169,7 @@ export function expressEnvExample(): string {
 # From your JumpCloud OIDC application (JumpCloud Admin Console -> SSO):
 JUMPCLOUD_CLIENT_ID=
 JUMPCLOUD_CLIENT_SECRET=
-# Optional overrides (defaults: https://oauth.id.jumpcloud.com/ and memberOf):
+# Optional overrides (defaults: https://oauth.id.jumpcloud.com/ and groups):
 # JUMPCLOUD_ISSUER=
 # JUMPCLOUD_GROUPS_CLAIM=
 # Public URL of THIS app; \${BASE_URL}/callback must be registered as a

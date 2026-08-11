@@ -31,7 +31,7 @@ const authenticated = (claims: Record<string, unknown>): MockOidc => ({
 const unauthenticated: MockOidc = { isAuthenticated: () => false };
 
 describe('requireGroup', () => {
-  const requireGroup = createRequireGroup('memberOf');
+  const requireGroup = createRequireGroup('groups');
 
   it('responds 401 when unauthenticated and does not call next', () => {
     const res = mockRes();
@@ -56,7 +56,7 @@ describe('requireGroup', () => {
     const res = mockRes();
     const next = vi.fn() as unknown as NextFunction;
     requireGroup(['app-admins'])(
-      mockReq(authenticated({ memberOf: 'app-admins' })),
+      mockReq(authenticated({ groups: 'app-admins' })),
       res,
       next,
     );
@@ -68,7 +68,7 @@ describe('requireGroup', () => {
     const res = mockRes();
     const next = vi.fn() as unknown as NextFunction;
     requireGroup(['app-admins'])(
-      mockReq(authenticated({ memberOf: ['engineering', 'app-admins'] })),
+      mockReq(authenticated({ groups: ['engineering', 'app-admins'] })),
       res,
       next,
     );
@@ -79,7 +79,7 @@ describe('requireGroup', () => {
     const res = mockRes();
     const next = vi.fn() as unknown as NextFunction;
     requireGroup(['app-admins'])(
-      mockReq(authenticated({ memberOf: ['engineering'] })),
+      mockReq(authenticated({ groups: ['engineering'] })),
       res,
       next,
     );
@@ -124,7 +124,7 @@ describe('requireGroup', () => {
 });
 
 describe('meHandler', () => {
-  const meHandler = createMeHandler('memberOf');
+  const meHandler = createMeHandler('groups');
 
   it('responds 401 JSON when unauthenticated', () => {
     const res = mockRes();
@@ -142,7 +142,7 @@ describe('meHandler', () => {
   it('responds { user, groups } when authenticated, normalizing a bare-string claim', () => {
     const res = mockRes();
     meHandler(
-      mockReq(authenticated({ memberOf: 'app-admins' })),
+      mockReq(authenticated({ groups: 'app-admins' })),
       res,
       vi.fn() as unknown as NextFunction,
     );
@@ -156,7 +156,7 @@ describe('meHandler', () => {
   it('responds with an array claim as-is', () => {
     const res = mockRes();
     meHandler(
-      mockReq(authenticated({ memberOf: ['a', 'b'] })),
+      mockReq(authenticated({ groups: ['a', 'b'] })),
       res,
       vi.fn() as unknown as NextFunction,
     );

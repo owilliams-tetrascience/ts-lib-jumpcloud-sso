@@ -39,8 +39,8 @@ export const {
   // `email`/`profile` are what populate session.user. Groups do NOT ride on
   // a scope — JumpCloud emits them as an ID-token attribute (below).
   scopes: ['openid', 'email', 'profile'],
-  // Our JumpCloud app emits groups in `groups`, not the package default of
-  // `memberOf`. ./groups applies the JUMPCLOUD_GROUPS_CLAIM override, so
+  // Our JumpCloud app emits groups in `groups`, which is also the package
+  // default. ./groups applies the JUMPCLOUD_GROUPS_CLAIM override, so
   // deployments need no extra env var and /debug reports the same name this
   // lookup uses.
   groupsClaim: GROUPS_CLAIM,

@@ -14,9 +14,9 @@ export const DEFAULT_ISSUER = 'https://oauth.id.jumpcloud.com/';
 /**
  * The default name of the ID-token claim that carries JumpCloud group names.
  * JumpCloud calls this the "group attribute" when you configure the OIDC app;
- * TetraScience's convention is `memberOf`.
+ * TetraScience's convention is `groups`.
  */
-export const DEFAULT_GROUPS_CLAIM = 'memberOf';
+export const DEFAULT_GROUPS_CLAIM = 'groups';
 
 /**
  * The default OAuth scopes requested during login. `openid` is mandatory for
@@ -73,7 +73,7 @@ export interface JumpCloudCommon {
   scopes?: string[];
   /**
    * Name of the ID-token claim that carries JumpCloud group names.
-   * Defaults to {@link DEFAULT_GROUPS_CLAIM} (`memberOf`).
+   * Defaults to {@link DEFAULT_GROUPS_CLAIM} (`groups`).
    */
   groupsClaim?: string;
   /**

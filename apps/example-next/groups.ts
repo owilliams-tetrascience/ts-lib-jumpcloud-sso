@@ -14,9 +14,9 @@ export const ADMIN_GROUPS = [ADMIN_GROUP];
  * The ID-token claim our JumpCloud OIDC app emits group names in.
  *
  * Ours is `groups` — the name typed into the app's "Group Attribute" field in
- * the JumpCloud console — NOT the package default of `memberOf`. Get this
- * wrong and gating 403s everyone: the claim reads as `undefined`, so every
- * user looks like they belong to no groups.
+ * the JumpCloud console, and since the rename also the package default. Get
+ * this wrong and gating 403s everyone: the claim reads as `undefined`, so
+ * every user looks like they belong to no groups.
  */
 const DEFAULT_GROUPS_CLAIM = 'groups';
 

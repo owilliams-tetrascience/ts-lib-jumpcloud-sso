@@ -29,7 +29,7 @@ describe('normalizeGroups', () => {
 
   it('returns [] for non-string, non-array values', () => {
     expect(normalizeGroups(42)).toEqual([]);
-    expect(normalizeGroups({ memberOf: 'app-admins' })).toEqual([]);
+    expect(normalizeGroups({ groups: 'app-admins' })).toEqual([]);
     expect(normalizeGroups(true)).toEqual([]);
   });
 });
