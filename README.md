@@ -13,16 +13,17 @@ One npm package, `@tetrascience-npm/jumpcloud-sso`, with three entry points:
 This README assumes you have **never touched SSO or OIDC before**. Read the
 first two sections once and the rest of your life gets easier.
 
-- [What is SSO and why do we do this?](#what-is-sso-and-why-do-we-do-this)
-- [What is OIDC in one minute](#what-is-oidc-in-one-minute)
-- [The login flow, drawn out](#the-login-flow-drawn-out)
-- [Register your app in JumpCloud (checklist)](#register-your-app-in-jumpcloud-checklist)
-- [Fastest start: the setup CLI](#fastest-start-the-setup-cli)
-- [Quickstart: Next.js in 5 steps](#quickstart-nextjs-in-5-steps)
-- [Quickstart: Express in 5 steps](#quickstart-express-in-5-steps)
-- [Gotchas](#gotchas)
-- [FAQ](#faq)
-- [Workspace layout (for contributors)](#workspace-layout-for-contributors)
+- [jumpcloud-sso](#jumpcloud-sso)
+  - [What is SSO and why do we do this?](#what-is-sso-and-why-do-we-do-this)
+  - [What is OIDC in one minute](#what-is-oidc-in-one-minute)
+  - [The login flow, drawn out](#the-login-flow-drawn-out)
+  - [Register your app in JumpCloud (checklist)](#register-your-app-in-jumpcloud-checklist)
+  - [Fastest start: the setup CLI](#fastest-start-the-setup-cli)
+  - [Quickstart: Next.js in 5 steps](#quickstart-nextjs-in-5-steps)
+  - [Quickstart: Express in 5 steps](#quickstart-express-in-5-steps)
+  - [Gotchas](#gotchas)
+  - [FAQ](#faq)
+  - [Workspace layout (for contributors)](#workspace-layout-for-contributors)
 
 ---
 
